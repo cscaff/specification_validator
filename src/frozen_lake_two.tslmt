@@ -1,0 +1,59 @@
+var Int playerX
+var Int playerY
+
+SPECIFICATION
+
+// Grid constants (0..3)
+xmin = i0(); xmax = i3();
+ymin = i0(); ymax = i3();
+
+// Goal
+goalX = i3();
+goalY = i3();
+
+// In-bounds predicate
+inbounds =
+  gte playerX xmin && lte playerX xmax &&
+  gte playerY ymin && lte playerY ymax;
+
+// Action macros (each is a full next-state update)
+moveL = [playerX <- sub playerX i1()] && [playerY <- playerY];
+moveR = [playerX <- add playerX i1()] && [playerY <- playerY];
+moveU = [playerX <- playerX] && [playerY <- sub playerY i1()];
+moveD = [playerX <- playerX] && [playerY <- add playerY i1()];
+stay  = [playerX <- playerX] && [playerY <- playerY];
+
+// Convenience guards (when a move would stay in bounds)
+canL = gt  playerX xmin;
+canR = lt  playerX xmax;
+canU = gt  playerY ymin;
+canD = lt  playerY ymax;
+
+
+assume {
+  // Initial state must be in bounds (and thereafter too, but system enforces)
+  inbounds;
+}
+
+always guarantee {
+  // Always keep state within bounds
+  inbounds;
+
+  // Exactly one transition per step:
+  // - take a legal move, or stay if blocked / no legal move needed
+  (
+    (canL && moveL) ||
+    (canR && moveR) ||
+    (canU && moveU) ||
+    (canD && moveD) ||
+    stay
+  );
+
+  // Optional: once at the goal, don’t leave it
+  ( (eq playerX goalX && eq playerY goalY) -> stay );
+}
+
+guarantee {
+  // Eventually reach the goal
+  F (eq playerX goalX && eq playerY goalY);
+}

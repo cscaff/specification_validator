@@ -1,0 +1,5 @@
+{
+  "bounds": { "xmin": 0, "xmax": 3, "ymin": 0, "ymax": 3 },
+  "forbidden": [],
+  "max_steps": 1000
+}

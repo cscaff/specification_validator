@@ -1,0 +1,44 @@
+var Int cop_x
+var Int cop_y
+
+var Int cop_two_x
+var Int cop_two_y
+
+var Int robber_x
+var Int robber_y
+
+SPECIFICATION
+
+assume {
+  // Cop One
+  gte cop_x i0() && gte cop_y i0();
+  lte cop_x i6() && lte cop_y i6();
+
+  // Cop Two
+  gte cop_two_x i0() && gte cop_two_y i0();
+  lte cop_two_x i6() && lte cop_two_y i6();
+
+  gte robber_x i0() && gte robber_y i0();
+  lte robber_x i6() && lte robber_y i6();
+  
+}
+
+always guarantee {
+  // Cop One
+  gte cop_x i0() && gte cop_y i0();
+  lte cop_x i6() && lte cop_y i6();
+
+  // Cop Two
+  gte cop_two_x i0() && gte cop_two_y i0();
+  lte cop_two_x i6() && lte cop_two_y i6();
+
+  // Cop One Movement
+  ([cop_x <- cop_x] || [cop_x <- add cop_x i1()] || [cop_x <- sub cop_x i1()]);
+  ([cop_y <- cop_y] || [cop_y <- add cop_y i1()] || [cop_y <- sub cop_y i1()]);
+
+  // Cop Two Movement
+  ([cop_two_x <- cop_two_x] || [cop_two_x <- add cop_two_x i1()] || [cop_two_x <- sub cop_two_x i1()]);
+  ([cop_two_y <- cop_two_y] || [cop_two_y <- add cop_two_y i1()] || [cop_two_y <- sub cop_two_y i1()]);
+
+  F ((eq cop_x robber_x && eq cop_y robber_y) || (eq cop_two_x robber_x && eq cop_two_y robber_y));
+}
