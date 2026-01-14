@@ -1,0 +1,55 @@
+var Int playerX
+var Int playerY
+
+SPECIFICATION
+
+// Grid constants (0..3)
+xmin = i0(); xmax = i3();
+ymin = i0(); ymax = i3();
+
+// Goal
+goalX = i3();
+goalY = i3();
+
+// In-bounds predicate
+inbounds =
+  gte playerX xmin && lte playerX xmax &&
+  gte playerY ymin && lte playerY ymax;
+
+// Action macros (each is a full next-state update)
+moveL = [playerX <- sub playerX i1()] && [playerY <- playerY];
+moveR = [playerX <- add playerX i1()] && [playerY <- playerY];
+moveU = [playerX <- playerX] && [playerY <- sub playerY i1()];
+moveD = [playerX <- playerX] && [playerY <- add playerY i1()];
+stay  = [playerX <- playerX] && [playerY <- playerY];
+
+// Hole
+avoid_hole0 = (eq playerX i1() && eq playerY i1());
+avoid_hole1 = (eq playerX i3() && eq playerY i1());
+avoid_hole2 = (eq playerX i3() && eq playerY i2());
+
+
+assume {
+  // Initial state must be in bounds (and thereafter too, but system enforces)
+  inbounds && ! avoid_hole0 && ! avoid_hole1 && ! avoid_hole2;
+}
+
+always guarantee {
+  // Always keep state within bounds
+  inbounds;
+
+  // Exactly one transition per step:
+  // - take a legal move, or stay if blocked / no legal move needed
+  (
+    moveL ||
+    moveR ||
+    moveU ||
+    moveD ||
+    stay
+  );
+
+}
+
+guarantee {
+  (F (eq playerX goalX && eq playerY goalY)) && (G ((avoid_hole1) <-> ((avoid_hole0) || (avoid_hole2))));
+}
