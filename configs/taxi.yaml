@@ -11,6 +11,7 @@ synthesis:
     - "--synt"
     - "--pruning"
     - "1"
+  timeout_minutes: 10  # Skip configuration if synthesis takes longer than 5 minutes
 
 debug: true
 
@@ -21,6 +22,7 @@ run_configuration:
     configurations:
       - name: "4x4 compact"
         grid_size: 4
+        start_pos: {x: 2, y: 2}
         pickup: {x: 0, y: 0}
         dropoff: {x: 3, y: 3}
         barriers:
@@ -32,6 +34,7 @@ run_configuration:
     configurations:
       - name: "4x4 reverse route"
         grid_size: 4
+        start_pos: {x: 2, y: 2}
         pickup: {x: 3, y: 3}
         dropoff: {x: 0, y: 0}
         barriers:

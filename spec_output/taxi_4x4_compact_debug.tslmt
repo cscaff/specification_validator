@@ -5,52 +5,40 @@ var Bool delivered
 
 SPECIFICATION
 
-/* Grid: 5x5 (0-4) */
-MINB = i0();
-MAXB = i4();
+/* Taxi: Navigate 4x4 grid, pickup passenger, deliver to destination */
+/* Pickup: (0,0), Dropoff: (3,3), Start: (2,2), Barriers: 1 */
 
-/* Taxi start */
+MINB = i0();
+MAXB = i3();
+
 START_X = i2();
 START_Y = i2();
-
-/* Fixed locations: Pickup at (0,0), Dest at (4,4) */
 PICKUP_X = i0();
 PICKUP_Y = i0();
-DEST_X = i4();
-DEST_Y = i4();
+DEST_X = i3();
+DEST_Y = i3();
 
-/* Barrier */
-BAR_X = i1();
-BAR_Y = i2();
+/* Barrier positions */
+BAR_0_X = i1();
+BAR_0_Y = i1();
 
 /* Position checks */
 inBounds = (gte x MINB) && (lte x MAXB) && (gte y MINB) && (lte y MAXB);
-atBarrier = (eq x BAR_X) && (eq y BAR_Y);
+atBarrier = (eq x BAR_0_X) && (eq y BAR_0_Y);
 atPickup = (eq x PICKUP_X) && (eq y PICKUP_Y);
 atDest = (eq x DEST_X) && (eq y DEST_Y);
 
 /* Movement */
 stayX = [x <- x];
 stayY = [y <- y];
-moveRight = [x <- add x i1()];
-moveLeft = [x <- sub x i1()];
-moveUp = [y <- add y i1()];
-moveDown = [y <- sub y i1()];
-
-/* Safe moves */
-nxR = add x i1();
-nxL = sub x i1();
-nyU = add y i1();
-nyD = sub y i1();
-
-safeR = !((eq nxR BAR_X) && (eq y BAR_Y));
-safeL = !((eq nxL BAR_X) && (eq y BAR_Y));
-safeU = !((eq x BAR_X) && (eq nyU BAR_Y));
-safeD = !((eq x BAR_X) && (eq nyD BAR_Y));
+moveRight = [x <- add x i1()] && [y <- y];
+moveLeft = [x <- sub x i1()] && [y <- y];
+moveUp = [y <- add y i1()] && [x <- x];
+moveDown = [y <- sub y i1()] && [x <- x];
 
 assume {
-    (eq x START_X);
-    (eq y START_Y);
+    eq x START_X;
+    eq y START_Y;
 }
 
 guarantee {
@@ -59,14 +47,13 @@ guarantee {
 
     /* Safety */
     G inBounds;
-    G !atBarrier;
 
     /* Movement */
     X G ((stayX && stayY) ||
-         (moveRight && stayY && (lt x MAXB) && safeR) ||
-         (moveLeft && stayY && (gt x MINB) && safeL) ||
-         (stayX && moveUp && (lt y MAXB) && safeU) ||
-         (stayX && moveDown && (gt y MINB) && safeD));
+         (moveRight && (lt x MAXB)) ||
+         (moveLeft && (gt x MINB)) ||
+         (moveUp && (lt y MAXB)) ||
+         (moveDown && (gt y MINB)));
 
     /* Pickup */
     X G (!hasPassenger && !delivered && atPickup -> [hasPassenger <- true] && [delivered <- false]);
@@ -79,8 +66,6 @@ guarantee {
     /* Done */
     X G (delivered -> [hasPassenger <- false] && [delivered <- true] && stayX && stayY);
 
-    /* Liveness */
-    F delivered;
+    /* Objective */
+    F delivered && G !atBarrier;
 }
-
-{{GUARANTEE_BLOCK}}

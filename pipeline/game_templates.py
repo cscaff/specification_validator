@@ -14,7 +14,7 @@ def generate_ice_lake_game(params: dict[str, Any]) -> str:
     Generate an Ice Lake game harness.
 
     Args:
-        params: Configuration with grid_size, goal, holes
+        params: Configuration with grid_size, goal, holes, start_pos
 
     Returns:
         Complete C game harness string (controller appended separately)
@@ -22,9 +22,12 @@ def generate_ice_lake_game(params: dict[str, Any]) -> str:
     grid_size = params.get("grid_size", 4)
     goal = params.get("goal", {"x": 3, "y": 3})
     holes = params.get("holes", [{"x": 1, "y": 1}])
+    start_pos = params.get("start_pos", {"x": 0, "y": 0})
 
     goal_x = goal.get("x", grid_size - 1)
     goal_y = goal.get("y", grid_size - 1)
+    start_x = start_pos.get("x", 0)
+    start_y = start_pos.get("y", 0)
 
     # Generate hole arrays
     hole_count = len(holes)
@@ -39,7 +42,7 @@ def generate_ice_lake_game(params: dict[str, Any]) -> str:
  * Ice Lake Game - Automated Validation Harness
  * Generated from configuration parameters
  *
- * Grid: {grid_size}x{grid_size}, Goal: ({goal_x},{goal_y}), Holes: {hole_count}
+ * Grid: {grid_size}x{grid_size}, Goal: ({goal_x},{goal_y}), Start: ({start_x},{start_y}), Holes: {hole_count}
  *
  * Exit codes:
  *   0 = Success (goal reached)
@@ -56,6 +59,8 @@ def generate_ice_lake_game(params: dict[str, Any]) -> str:
 #define GRID_SIZE {grid_size}
 #define GOAL_X {goal_x}
 #define GOAL_Y {goal_y}
+#define START_X {start_x}
+#define START_Y {start_y}
 #define MAX_STEPS 1000
 #define NUM_HOLES {hole_count}
 
@@ -135,7 +140,7 @@ def generate_taxi_game(params: dict[str, Any]) -> str:
     Generate a Taxi game harness.
 
     Args:
-        params: Configuration with grid_size, pickup, dropoff, barriers
+        params: Configuration with grid_size, pickup, dropoff, barriers, start_pos
 
     Returns:
         Complete C game harness string (controller appended separately)
@@ -144,11 +149,14 @@ def generate_taxi_game(params: dict[str, Any]) -> str:
     pickup = params.get("pickup", params.get("PickUp", {"x": 0, "y": 0}))
     dropoff = params.get("dropoff", params.get("Dropoff", {"x": 4, "y": 4}))
     barriers = params.get("barriers", params.get("Barriers", []))
+    start_pos = params.get("start_pos", {"x": 2, "y": 2})
 
     pickup_x = pickup.get("x", 0)
     pickup_y = pickup.get("y", 0)
     dropoff_x = dropoff.get("x", grid_size - 1)
     dropoff_y = dropoff.get("y", grid_size - 1)
+    start_x = start_pos.get("x", 2)
+    start_y = start_pos.get("y", 2)
 
     # Generate barrier arrays
     barrier_count = len(barriers)
@@ -163,7 +171,7 @@ def generate_taxi_game(params: dict[str, Any]) -> str:
  * Taxi Game - Automated Validation Harness
  * Generated from configuration parameters
  *
- * Grid: {grid_size}x{grid_size}, Pickup: ({pickup_x},{pickup_y}), Dropoff: ({dropoff_x},{dropoff_y}), Barriers: {barrier_count}
+ * Grid: {grid_size}x{grid_size}, Pickup: ({pickup_x},{pickup_y}), Dropoff: ({dropoff_x},{dropoff_y}), Start: ({start_x},{start_y}), Barriers: {barrier_count}
  *
  * Exit codes:
  *   0 = Success (passenger delivered)
@@ -182,6 +190,8 @@ def generate_taxi_game(params: dict[str, Any]) -> str:
 #define PICKUP_Y {pickup_y}
 #define DEST_X {dropoff_x}
 #define DEST_Y {dropoff_y}
+#define START_X {start_x}
+#define START_Y {start_y}
 #define MAX_STEPS 1000
 #define NUM_BARRIERS {barrier_count}
 
@@ -258,7 +268,7 @@ def generate_cliff_walking_game(params: dict[str, Any]) -> str:
     Generate a Cliff Walking game harness.
 
     Args:
-        params: Configuration with grid_size, grid_rows, cliff_min, cliff_max, goal_pos
+        params: Configuration with grid_size, grid_rows, cliff_min, cliff_max, goal_pos, start_pos
 
     Returns:
         Complete C game harness string (controller appended separately)
@@ -268,15 +278,18 @@ def generate_cliff_walking_game(params: dict[str, Any]) -> str:
     cliff_min = params.get("cliff_min", 1)
     cliff_max = params.get("cliff_max", 10)
     goal_pos = params.get("goal_pos", {"x": 11, "y": 0})
+    start_pos = params.get("start_pos", {"x": 0, "y": 0})
 
     goal_x = goal_pos.get("x", grid_cols - 1)
     goal_y = goal_pos.get("y", 0)
+    start_x = start_pos.get("x", 0)
+    start_y = start_pos.get("y", 0)
 
     game = f'''/*
  * Cliff Walking Game - Automated Validation Harness
  * Generated from configuration parameters
  *
- * Grid: {grid_cols}x{grid_rows}, Goal: ({goal_x},{goal_y}), Cliff: y=0, x=[{cliff_min},{cliff_max}]
+ * Grid: {grid_cols}x{grid_rows}, Goal: ({goal_x},{goal_y}), Start: ({start_x},{start_y}), Cliff: y=0, x=[{cliff_min},{cliff_max}]
  *
  * Exit codes:
  *   0 = Success (goal reached)
@@ -294,6 +307,8 @@ def generate_cliff_walking_game(params: dict[str, Any]) -> str:
 #define GRID_ROWS {grid_rows}
 #define GOAL_X {goal_x}
 #define GOAL_Y {goal_y}
+#define START_X {start_x}
+#define START_Y {start_y}
 #define CLIFF_Y 0
 #define CLIFF_X_MIN {cliff_min}
 #define CLIFF_X_MAX {cliff_max}

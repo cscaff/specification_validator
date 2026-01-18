@@ -14,7 +14,7 @@ def generate_ice_lake_spec(params: dict[str, Any], objective: str) -> str:
     Generate an Ice Lake TSLMT specification.
 
     Args:
-        params: Configuration with grid_size, goal, holes
+        params: Configuration with grid_size, goal, holes, start_pos
         objective: The TSL guarantee objective (e.g., "F atGoal")
 
     Returns:
@@ -23,6 +23,9 @@ def generate_ice_lake_spec(params: dict[str, Any], objective: str) -> str:
     grid_size = params.get("grid_size", 4)
     goal = params.get("goal", {"x": 3, "y": 3})
     holes = params.get("holes", [{"x": 1, "y": 1}])
+    start_pos = params.get("start_pos", {"x": 0, "y": 0})
+    start_x = start_pos.get("x", 0)
+    start_y = start_pos.get("y", 0)
 
     goal_x = goal.get("x", grid_size - 1)
     goal_y = goal.get("y", grid_size - 1)
@@ -52,10 +55,12 @@ var Bool atGoal
 SPECIFICATION
 
 /* Ice Lake: Robot navigates {grid_size}x{grid_size} grid avoiding holes to reach the goal */
-/* Goal: ({goal_x},{goal_y}), Holes: {len(holes)} */
+/* Goal: ({goal_x},{goal_y}), Start: ({start_x},{start_y}), Holes: {len(holes)} */
 
 GOAL_X = i{goal_x}();
 GOAL_Y = i{goal_y}();
+START_X = i{start_x}();
+START_Y = i{start_y}();
 BOUND_MIN = i0();
 BOUND_MAX = i{bound_max}();
 
@@ -78,8 +83,8 @@ inBounds = (gte x BOUND_MIN) && (lte x BOUND_MAX) && (gte y BOUND_MIN) && (lte y
 atHolePos = {at_hole_pos};
 
 assume {{
-    inBounds;
-    !atHolePos;
+    eq x START_X;
+    eq y START_Y;
 }}
 
 guarantee {{
@@ -113,7 +118,7 @@ def generate_taxi_spec(params: dict[str, Any], objective: str) -> str:
     Generate a Taxi TSLMT specification.
 
     Args:
-        params: Configuration with grid_size, pickup, dropoff, barriers
+        params: Configuration with grid_size, pickup, dropoff, barriers, start_pos
         objective: The TSL guarantee objective (e.g., "F delivered")
 
     Returns:
@@ -123,12 +128,15 @@ def generate_taxi_spec(params: dict[str, Any], objective: str) -> str:
     pickup = params.get("pickup", params.get("PickUp", {"x": 0, "y": 0}))
     dropoff = params.get("dropoff", params.get("Dropoff", {"x": 4, "y": 4}))
     barriers = params.get("barriers", params.get("Barriers", []))
+    start_pos = params.get("start_pos", {"x": 2, "y": 2})
 
     bound_max = grid_size - 1
     pickup_x = pickup.get("x", 0)
     pickup_y = pickup.get("y", 0)
     dropoff_x = dropoff.get("x", bound_max)
     dropoff_y = dropoff.get("y", bound_max)
+    start_x = start_pos.get("x", 2)
+    start_y = start_pos.get("y", 2)
 
     # Generate barrier constants
     barrier_constants = []
@@ -155,11 +163,13 @@ var Bool delivered
 SPECIFICATION
 
 /* Taxi: Navigate {grid_size}x{grid_size} grid, pickup passenger, deliver to destination */
-/* Pickup: ({pickup_x},{pickup_y}), Dropoff: ({dropoff_x},{dropoff_y}), Barriers: {len(barriers)} */
+/* Pickup: ({pickup_x},{pickup_y}), Dropoff: ({dropoff_x},{dropoff_y}), Start: ({start_x},{start_y}), Barriers: {len(barriers)} */
 
 MINB = i0();
 MAXB = i{bound_max}();
 
+START_X = i{start_x}();
+START_Y = i{start_y}();
 PICKUP_X = i{pickup_x}();
 PICKUP_Y = i{pickup_y}();
 DEST_X = i{dropoff_x}();
@@ -183,8 +193,8 @@ moveUp = [y <- add y i1()] && [x <- x];
 moveDown = [y <- sub y i1()] && [x <- x];
 
 assume {{
-    eq x i2();
-    eq y i2();
+    eq x START_X;
+    eq y START_Y;
 }}
 
 guarantee {{
@@ -241,6 +251,8 @@ def generate_cliff_walking_spec(params: dict[str, Any], objective: str) -> str:
     max_y = grid_rows - 1
     goal_x = goal_pos.get("x", max_x)
     goal_y = goal_pos.get("y", 0)
+    start_x = start_pos.get("x", 0)
+    start_y = start_pos.get("y", 0)
 
     # Cliff is typically at y=0, x from cliff_min to cliff_max
     # If cliff_min == cliff_max == 0, there's no cliff
@@ -258,13 +270,15 @@ var Bool atGoal
 SPECIFICATION
 
 /* Cliff Walking: Robot navigates {grid_cols}x{grid_rows} grid avoiding cliff to reach goal */
-/* Goal: ({goal_x},{goal_y}), Cliff: y=0, x=[{cliff_min},{cliff_max}] */
+/* Goal: ({goal_x},{goal_y}), Start: ({start_x},{start_y}), Cliff: y=0, x=[{cliff_min},{cliff_max}] */
 
 MIN_X = i0();
 MAX_X = i{max_x}();
 MIN_Y = i0();
 MAX_Y = i{max_y}();
 
+START_X = i{start_x}();
+START_Y = i{start_y}();
 GOAL_X = i{goal_x}();
 GOAL_Y = i{goal_y}();
 
@@ -288,8 +302,8 @@ inBounds = (gte x MIN_X) && (lte x MAX_X) && (gte y MIN_Y) && (lte y MAX_Y);
 onCliff = {cliff_predicate};
 
 assume {{
-    inBounds;
-    !onCliff;
+    eq x START_X;
+    eq y START_Y;
 }}
 
 guarantee {{

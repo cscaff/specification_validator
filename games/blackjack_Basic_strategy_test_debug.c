@@ -128,15 +128,15 @@ int main() {
         if ((prog_counter == 1))
           {
             read_inputs();
-            prog_counter = 1;
-            shouldHit = true;
+            prog_counter = ((handValue == 12) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((dealerCard <= 11) ? 1 : 3) : 1) : 1) : 3) : ((handValue == 18) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((dealerCard <= 11) ? 1 : 3) : 1) : 1) : 3) : ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((dealerCard <= 11) ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : 3) : ((dealerCard <= 11) ? ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3)) : 3)) : ((dealerCard <= 11) ? 1 : 3)) : 3) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3))) : 1) : 3)) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3))) : 1) : 3)) : 3)));
+            shouldHit = ((handValue == 12) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? true : (isSoft ? true : ((dealerCard <= 6) ? false : true))) : true) : true) : ((handValue == 18) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? (isSoft ? true : ((dealerCard <= 11) ? false : true)) : false) : false) : true) : ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((dealerCard <= 11) ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : true) : ((dealerCard <= 11) ? ((handValue <= 16) ? true : ((handValue <= 21) ? false : true)) : true)) : true) : true) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : ((dealerCard <= 6) ? ((handValue <= 16) ? false : ((handValue <= 21) ? false : true)) : ((handValue <= 16) ? true : ((handValue <= 21) ? false : true)))) : true) : true)) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : ((handValue <= 16) ? false : ((handValue <= 21) ? false : true))) : true) : true)) : true)));
             continue;
           }
-        if ((prog_counter == 2))
+        if ((prog_counter == 3))
           {
             read_inputs();
-            prog_counter = (((2 <= dealerCard) && (dealerCard < 12)) ? (((4 <= handValue) && (handValue < 22)) ? 2 : 1) : 1);
-            shouldHit = (((2 <= dealerCard) && (dealerCard < 12)) ? (((4 <= handValue) && (handValue < 22)) ? (((((((!(isSoft)) && (handValue < 12)) || ((!(isSoft)) && (handValue == 12)&& (!(((4 <= dealerCard) && (dealerCard < 7)))))) || ((!(isSoft)) && (13 <= handValue)&& (handValue < 17)&& (!(((2 <= dealerCard) && (dealerCard < 7)))))) || (isSoft && (handValue < 18))) || (isSoft && (handValue == 18)&& (9 <= dealerCard)&& (dealerCard < 12))) ? true : false) : true) : true);
+            prog_counter = 3;
+            shouldHit = true;
             continue;
           }
         if ((prog_counter == 1))
@@ -145,9 +145,19 @@ int main() {
               {
                 if ((prog_counter == 1))
                   break;
-                if ((prog_counter == 2))
+                if ((prog_counter == 3))
                   break;
-                abort();
+                if ((prog_counter == 2))
+                  {
+                    read_inputs();
+                    prog_counter = ((handValue == 12) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((dealerCard <= 11) ? 1 : 3) : 1) : 1) : 3) : ((handValue == 18) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((dealerCard <= 11) ? 1 : 3) : 1) : 1) : 3) : ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((dealerCard <= 11) ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : 3) : ((dealerCard <= 11) ? ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3)) : 3)) : ((dealerCard <= 11) ? 1 : 3)) : 3) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3))) : 1) : 3)) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3))) : 1) : 3)) : 3)));
+                    shouldHit = ((handValue == 12) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? true : (isSoft ? true : ((dealerCard <= 6) ? false : true))) : true) : true) : ((handValue == 18) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? (isSoft ? true : ((dealerCard <= 11) ? false : true)) : false) : false) : true) : ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((dealerCard <= 11) ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : true) : ((dealerCard <= 11) ? ((handValue <= 16) ? true : ((handValue <= 21) ? false : true)) : true)) : true) : true) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : ((dealerCard <= 6) ? ((handValue <= 16) ? false : ((handValue <= 21) ? false : true)) : ((handValue <= 16) ? true : ((handValue <= 21) ? false : true)))) : true) : true)) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : ((handValue <= 16) ? false : ((handValue <= 21) ? false : true))) : true) : true)) : true)));
+                    continue;
+                  }
+                {
+                  prog_counter = 2;
+                  continue;
+                }
               }
             continue;
           }
@@ -157,13 +167,48 @@ int main() {
               {
                 if ((prog_counter == 1))
                   break;
-                if ((prog_counter == 2))
+                if ((prog_counter == 3))
                   break;
-                abort();
+                if ((prog_counter == 2))
+                  {
+                    read_inputs();
+                    prog_counter = ((handValue == 12) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((dealerCard <= 11) ? 1 : 3) : 1) : 1) : 3) : ((handValue == 18) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((dealerCard <= 11) ? 1 : 3) : 1) : 1) : 3) : ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((dealerCard <= 11) ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : 3) : ((dealerCard <= 11) ? ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3)) : 3)) : ((dealerCard <= 11) ? 1 : 3)) : 3) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3))) : 1) : 3)) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3))) : 1) : 3)) : 3)));
+                    shouldHit = ((handValue == 12) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? true : (isSoft ? true : ((dealerCard <= 6) ? false : true))) : true) : true) : ((handValue == 18) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? (isSoft ? true : ((dealerCard <= 11) ? false : true)) : false) : false) : true) : ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((dealerCard <= 11) ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : true) : ((dealerCard <= 11) ? ((handValue <= 16) ? true : ((handValue <= 21) ? false : true)) : true)) : true) : true) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : ((dealerCard <= 6) ? ((handValue <= 16) ? false : ((handValue <= 21) ? false : true)) : ((handValue <= 16) ? true : ((handValue <= 21) ? false : true)))) : true) : true)) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : ((handValue <= 16) ? false : ((handValue <= 21) ? false : true))) : true) : true)) : true)));
+                    continue;
+                  }
+                {
+                  prog_counter = 2;
+                  continue;
+                }
               }
             continue;
           }
-        abort();
+        if ((prog_counter == 3))
+          {
+            for(;;)
+              {
+                if ((prog_counter == 1))
+                  break;
+                if ((prog_counter == 3))
+                  break;
+                if ((prog_counter == 2))
+                  {
+                    read_inputs();
+                    prog_counter = ((handValue == 12) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((dealerCard <= 11) ? 1 : 3) : 1) : 1) : 3) : ((handValue == 18) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((dealerCard <= 11) ? 1 : 3) : 1) : 1) : 3) : ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((dealerCard <= 11) ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : 3) : ((dealerCard <= 11) ? ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3)) : 3)) : ((dealerCard <= 11) ? 1 : 3)) : 3) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3))) : 1) : 3)) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? 1 : ((handValue <= 21) ? 1 : 3)) : ((handValue <= 16) ? 1 : ((handValue <= 21) ? 1 : 3))) : 1) : 3)) : 3)));
+                    shouldHit = ((handValue == 12) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? true : (isSoft ? true : ((dealerCard <= 6) ? false : true))) : true) : true) : ((handValue == 18) ? ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? (isSoft ? true : ((dealerCard <= 11) ? false : true)) : false) : false) : true) : ((dealerCard >= 2) ? ((dealerCard >= 4) ? ((dealerCard >= 9) ? ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((dealerCard <= 11) ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : true) : ((dealerCard <= 11) ? ((handValue <= 16) ? true : ((handValue <= 21) ? false : true)) : true)) : true) : true) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : ((dealerCard <= 6) ? ((handValue <= 16) ? false : ((handValue <= 21) ? false : true)) : ((handValue <= 16) ? true : ((handValue <= 21) ? false : true)))) : true) : true)) : ((handValue >= 4) ? ((handValue >= 13) ? (isSoft ? ((handValue <= 17) ? true : ((handValue <= 21) ? false : true)) : ((handValue <= 16) ? false : ((handValue <= 21) ? false : true))) : true) : true)) : true)));
+                    continue;
+                  }
+                {
+                  prog_counter = 2;
+                  continue;
+                }
+              }
+            continue;
+          }
+        {
+          prog_counter = 2;
+          continue;
+        }
       }
   }
 }

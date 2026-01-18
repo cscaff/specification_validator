@@ -11,6 +11,8 @@ synthesis:
     - "--tslmt"
     - "--synt"
 
+  timeout_minutes: 5  # Skip configuration if synthesis takes longer than 5 minutes
+
 debug: true
 
 run_configuration:
@@ -38,10 +40,10 @@ run_configuration:
   - objective: "F atGoal"
     timeout: 1000
     configurations:
-      - name: "No cliff"
-        grid_size: 6
+      - name: "Standard 12x4 cliff"
+        grid_size: 12
         grid_rows: 4
-        cliff_min: 0
-        cliff_max: 0
+        cliff_min: 1
+        cliff_max: 10
         start_pos: {x: 0, y: 0}
-        goal_pos: {x: 5, y: 0}
+        goal_pos: {x: 11, y: 0}

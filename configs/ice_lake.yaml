@@ -9,6 +9,7 @@ synthesis:
   args:
     - "--tslmt"
     - "--synt"
+  timeout_minutes: 10  # Skip configuration if synthesis takes longer than 10 minutes
 
 debug: true
 
@@ -19,12 +20,14 @@ run_configuration:
     configurations:
       - name: "4x4 single hole"
         grid_size: 4
+        start_pos: {x: 0, y: 0}
         goal: {x: 3, y: 3}
         holes:
           - {x: 1, y: 1}
 
       - name: "4x4 single hole"
         grid_size: 4
+        start_pos: {x: 0, y: 0}
         goal: {x: 3, y: 3}
         holes:
           - {x: 2, y: 2}
@@ -35,12 +38,14 @@ run_configuration:
     configurations:
       - name: "4x4 single hole"
         grid_size: 4
+        start_pos: {x: 0, y: 0}
         goal: {x: 3, y: 3}
         holes:
           - {x: 3, y: 2}
 
       - name: "4x4 single hole"
         grid_size: 4
+        start_pos: {x: 0, y: 0}
         goal: {x: 3, y: 3}
         holes:
           - {x: 2, y: 1}

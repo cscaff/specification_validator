@@ -1,0 +1,71 @@
+var Int x
+var Int y
+var Bool hasPassenger
+var Bool delivered
+
+SPECIFICATION
+
+/* Taxi: Navigate 4x4 grid, pickup passenger, deliver to destination */
+/* Pickup: (3,3), Dropoff: (0,0), Start: (2,2), Barriers: 1 */
+
+MINB = i0();
+MAXB = i3();
+
+START_X = i2();
+START_Y = i2();
+PICKUP_X = i3();
+PICKUP_Y = i3();
+DEST_X = i0();
+DEST_Y = i0();
+
+/* Barrier positions */
+BAR_0_X = i2();
+BAR_0_Y = i1();
+
+/* Position checks */
+inBounds = (gte x MINB) && (lte x MAXB) && (gte y MINB) && (lte y MAXB);
+atBarrier = (eq x BAR_0_X) && (eq y BAR_0_Y);
+atPickup = (eq x PICKUP_X) && (eq y PICKUP_Y);
+atDest = (eq x DEST_X) && (eq y DEST_Y);
+
+/* Movement */
+stayX = [x <- x];
+stayY = [y <- y];
+moveRight = [x <- add x i1()] && [y <- y];
+moveLeft = [x <- sub x i1()] && [y <- y];
+moveUp = [y <- add y i1()] && [x <- x];
+moveDown = [y <- sub y i1()] && [x <- x];
+
+assume {
+    eq x START_X;
+    eq y START_Y;
+}
+
+guarantee {
+    /* Initial */
+    stayX && stayY && [hasPassenger <- false] && [delivered <- false];
+
+    /* Safety */
+    G inBounds;
+
+    /* Movement */
+    X G ((stayX && stayY) ||
+         (moveRight && (lt x MAXB)) ||
+         (moveLeft && (gt x MINB)) ||
+         (moveUp && (lt y MAXB)) ||
+         (moveDown && (gt y MINB)));
+
+    /* Pickup */
+    X G (!hasPassenger && !delivered && atPickup -> [hasPassenger <- true] && [delivered <- false]);
+    X G (!hasPassenger && !delivered && !atPickup -> [hasPassenger <- false] && [delivered <- false]);
+
+    /* Dropoff */
+    X G (hasPassenger && !delivered && atDest -> [hasPassenger <- false] && [delivered <- true]);
+    X G (hasPassenger && !delivered && !atDest -> [hasPassenger <- true] && [delivered <- false]);
+
+    /* Done */
+    X G (delivered -> [hasPassenger <- false] && [delivered <- true] && stayX && stayY);
+
+    /* Objective */
+    F delivered && G !atBarrier;
+}

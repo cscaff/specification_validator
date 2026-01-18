@@ -30,6 +30,7 @@ class SynthesisConfig:
     """Configuration for the Issy synthesis tool."""
     command: str = "issy"
     args: list[str] = field(default_factory=lambda: DEFAULT_SYNTHESIS_ARGS.copy())
+    timeout_minutes: Optional[float] = None  # None means no timeout
 
 
 @dataclass
@@ -126,6 +127,7 @@ def load_config(config_path: str | Path, root_dir: Optional[Path] = None) -> Pip
     synthesis = SynthesisConfig(
         command=synth_raw.get("command", "issy"),
         args=synth_raw.get("args", DEFAULT_SYNTHESIS_ARGS.copy()),
+        timeout_minutes=synth_raw.get("timeout_minutes", None),
     )
 
     # Parse run_configuration (objectives and their configurations)

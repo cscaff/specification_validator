@@ -13,6 +13,7 @@ synthesis:
   args:
     - "--tslmt"
     - "--synt"
+  timeout_minutes: 5
 
 debug: true
 

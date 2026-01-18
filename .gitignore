@@ -31,3 +31,10 @@ Thumbs.db
 # Compiled game binaries
 game_binary
 *.o
+
+# Logs
+logs/
+
+# Debug Outputs
+spec_outputs/
+games/

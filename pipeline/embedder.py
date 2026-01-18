@@ -17,7 +17,7 @@ CONTROLLER_MARKER_START = "\n/* ======================================== CONTROL
 CONTROLLER_MARKER_END = "\n/* ======================================== CONTROLLER END ======================================== */\n"
 
 
-def extract_controller_code(synthesis_output: str, rename_main: bool = False) -> str:
+def extract_controller_code(synthesis_output: str, rename_main: bool = False, inject_start_pos: bool = False) -> str:
     """
     Extract the complete controller code from synthesis output, including
     variable declarations and the main function.
@@ -25,6 +25,7 @@ def extract_controller_code(synthesis_output: str, rename_main: bool = False) ->
     Args:
         synthesis_output: Raw output from the synthesis tool
         rename_main: If True, rename main() to step_controller() (legacy behavior)
+        inject_start_pos: If True, inject x = START_X; y = START_Y; at start of main()
 
     Returns:
         The complete controller code ready for embedding
@@ -100,6 +101,17 @@ def extract_controller_code(synthesis_output: str, rename_main: bool = False) ->
         # Convert void main() to int main() for C standard compliance
         code = re.sub(r'\bvoid\s+main\s*\(\s*\)', 'int main()', code)
 
+    # Optionally inject start position initialization at the start of main()
+    # This ensures x and y are set to START_X and START_Y (defined in game harness)
+    # before any controller logic runs, overriding any default initialization
+    if inject_start_pos:
+        # Find "int main() {" or "int main()" followed by "{" and inject after the opening brace
+        code = re.sub(
+            r'(int\s+main\s*\(\s*\)\s*\{)',
+            r'\1\n  x = START_X; y = START_Y;',
+            code
+        )
+
     return code
 
 
@@ -157,8 +169,12 @@ def embed_from_template(
     Returns:
         Path to the generated game file
     """
-    # Extract controller code (keep main() as-is)
-    controller_code = extract_controller_code(synthesis_output, rename_main=False)
+    # Determine if we need to inject start position initialization
+    # This is needed for games that use x/y position variables (not blackjack)
+    inject_start_pos = game_name.lower() in ("ice_lake", "taxi", "cliff_walking")
+
+    # Extract controller code (keep main() as-is, optionally inject start position)
+    controller_code = extract_controller_code(synthesis_output, rename_main=False, inject_start_pos=inject_start_pos)
 
     # Generate complete file
     complete_file = generate_game_with_controller(game_name, params, controller_code)

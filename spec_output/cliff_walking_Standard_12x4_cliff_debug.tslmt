@@ -1,0 +1,71 @@
+var Int x
+var Int y
+var Bool atGoal
+
+SPECIFICATION
+
+/* Cliff Walking: Robot navigates 12x4 grid avoiding cliff to reach goal */
+/* Goal: (11,0), Start: (0,0), Cliff: y=0, x=[1,10] */
+
+MIN_X = i0();
+MAX_X = i11();
+MIN_Y = i0();
+MAX_Y = i3();
+
+START_X = i0();
+START_Y = i0();
+GOAL_X = i11();
+GOAL_Y = i0();
+
+CLIFF_Y = i0();
+CLIFF_X_MIN = i1();
+CLIFF_X_MAX = i10();
+
+/* Movement predicates */
+stayX = [x <- x];
+stayY = [y <- y];
+moveRight = [x <- add x i1()] && [y <- y];
+moveLeft = [x <- sub x i1()] && [y <- y];
+moveUp = [y <- add y i1()] && [x <- x];
+moveDown = [y <- sub y i1()] && [x <- x];
+
+/* Position predicates */
+atGoalPos = (eq x GOAL_X) && (eq y GOAL_Y);
+inBounds = (gte x MIN_X) && (lte x MAX_X) && (gte y MIN_Y) && (lte y MAX_Y);
+
+/* Cliff check */
+onCliff = (eq y CLIFF_Y) && (gte x CLIFF_X_MIN) && (lte x CLIFF_X_MAX);
+
+assume {
+    eq x START_X;
+    eq y START_Y;
+}
+
+guarantee {
+    /* Initial state */
+    stayX && stayY && [atGoal <- false];
+
+    /* Stay in bounds */
+    G inBounds;
+
+    /* Never on cliff */
+    G !onCliff;
+
+    /* Movement: exactly one direction or stay */
+    X G ((stayX && stayY) ||
+         (moveRight && (lt x MAX_X)) ||
+         (moveLeft && (gt x MIN_X)) ||
+         (moveUp && (lt y MAX_Y)) ||
+         (moveDown && (gt y MIN_Y)));
+
+    /* Goal flag: set when reaching goal */
+    X G (atGoalPos -> [atGoal <- true]);
+    X G (atGoal -> [atGoal <- true]);
+    X G (!atGoalPos && !atGoal -> [atGoal <- false]);
+
+    /* Once at goal, stay there */
+    X G (atGoal -> stayX && stayY);
+
+    /* Objective */
+    F atGoal;
+}

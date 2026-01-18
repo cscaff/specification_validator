@@ -26,6 +26,7 @@ from .spec_generator import generate_spec
 from .synthesizer import synthesize, SynthesisResult
 from .embedder import embed_from_template
 from .runner import run_game_once, build_game, RunResult
+from .logger import PipelineLogger, DualOutput
 
 
 @dataclass
@@ -67,6 +68,7 @@ class PipelineResult:
     objectives: list[ObjectiveResult] = field(default_factory=list)
     success: bool = True
     error_message: Optional[str] = None
+    log_path: Optional[Path] = None
 
 
 class Pipeline:
@@ -103,21 +105,32 @@ class Pipeline:
                 error_message=f"Configuration errors: {'; '.join(errors)}",
             )
 
+        # Set up logging
+        logs_dir = self.config.root_dir / "logs"
+        logger = PipelineLogger(self.config.name, logs_dir)
+
         result = PipelineResult(config_name=self.config.name)
 
-        print("=" * 60)
-        print(f"  Spec Validator Pipeline - {self.config.name}")
-        print("=" * 60)
-        print(f"\nUsing template-based generation for specs and games")
-        print(f"Objectives: {len(self.config.objectives)}")
+        # Use DualOutput to capture all print statements to both console and log
+        with DualOutput(logger):
+            print("=" * 60)
+            print(f"  Spec Validator Pipeline - {self.config.name}")
+            print("=" * 60)
+            print(f"\nUsing template-based generation for specs and games")
+            print(f"Objectives: {len(self.config.objectives)}")
 
-        # Process each objective
-        for obj_idx, objective in enumerate(self.config.objectives):
-            obj_result = self._run_objective(objective, obj_idx + 1, debug)
-            result.objectives.append(obj_result)
+            # Process each objective
+            for obj_idx, objective in enumerate(self.config.objectives):
+                obj_result = self._run_objective(objective, obj_idx + 1, debug)
+                result.objectives.append(obj_result)
 
-        # Print summary
-        self._print_summary(result)
+            # Print summary
+            self._print_summary(result)
+
+        # Save log file
+        log_path = logger.save()
+        result.log_path = log_path
+        print(f"\nLog saved to: {log_path}")
 
         return result
 
@@ -192,19 +205,24 @@ class Pipeline:
                 spec_path = Path(f.name)
 
             # Step 2: Synthesize
-            print("  [2/4] Synthesizing controller...")
+            timeout_str = f" (timeout: {self.config.synthesis.timeout_minutes}min)" if self.config.synthesis.timeout_minutes else ""
+            print(f"  [2/4] Synthesizing controller...{timeout_str}")
             synthesis_result = synthesize(
                 spec_path,
                 command=self.config.synthesis.command,
                 args=self.config.synthesis.args,
                 debug=debug,
+                timeout_minutes=self.config.synthesis.timeout_minutes,
             )
 
             # Clean up spec file
             spec_path.unlink()
 
             if not synthesis_result.success:
-                print(f"  FAIL: Synthesis failed - {synthesis_result.error_message}")
+                if synthesis_result.timed_out:
+                    print(f"  SKIP: Synthesis timed out after {self.config.synthesis.timeout_minutes} minutes")
+                else:
+                    print(f"  FAIL: Synthesis failed - {synthesis_result.error_message}")
                 return ConfigurationResult(
                     config_name=config.name,
                     success=False,
