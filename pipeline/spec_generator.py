@@ -89,7 +89,7 @@ assume {{
 
 guarantee {{
     /* Initial state */
-    stayX && stayY && [atGoal <- false];
+    stayX && stayY; /* && [atGoal <- false]; */
 
     /* Stay in bounds */
     G inBounds;
@@ -102,9 +102,11 @@ guarantee {{
          (moveDown && (gt y BOUND_MIN)));
 
     /* Goal flag: set when reaching goal */
+    /*
     X G (atGoalPos -> [atGoal <- true]);
     X G (atGoal -> [atGoal <- true]);
     X G (!atGoalPos && !atGoal -> [atGoal <- false]);
+    */
 
     /* Objective */
     {objective};
