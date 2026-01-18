@@ -2,37 +2,180 @@
 Embedder module for the Spec Validator Pipeline.
 
 Handles embedding synthesized controllers into game files.
+Supports both legacy embedding (into existing files) and template-based
+generation where game files are generated from templates with config params.
 """
 
+import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
+
+from .game_templates import generate_game
 
 
 CONTROLLER_MARKER_START = "\n/* ======================================== CONTROLLER ======================================== */\n"
 CONTROLLER_MARKER_END = "\n/* ======================================== CONTROLLER END ======================================== */\n"
 
 
-def extract_controller_function(synthesis_output: str) -> str:
+def extract_controller_code(synthesis_output: str, rename_main: bool = False) -> str:
     """
-    Extract the main() function from synthesis output and rename it to step_controller().
+    Extract the complete controller code from synthesis output, including
+    variable declarations and the main function.
 
     Args:
         synthesis_output: Raw output from the synthesis tool
+        rename_main: If True, rename main() to step_controller() (legacy behavior)
 
     Returns:
-        The controller function code ready for embedding
+        The complete controller code ready for embedding
 
     Raises:
-        ValueError: If no main() function is found in the output
+        ValueError: If no valid C code is found in the output
     """
-    separator = "void main() "
-
-    if separator not in synthesis_output:
+    if "void main()" not in synthesis_output:
         raise ValueError("No 'void main()' function found in synthesis output")
 
-    _, _, after = synthesis_output.partition(separator)
+    # Find the start of the C code
+    # Look for common patterns that indicate start of C code:
+    # - #include directives
+    # - Variable declarations (bool, int, etc.)
+    # - void read_inputs()
 
-    return f"void step_controller() {after}"
+    lines = synthesis_output.split('\n')
+    code_start_idx = None
+
+    # Patterns that indicate start of C code
+    c_code_patterns = [
+        r'^#include\s*<',
+        r'^(bool|int|char|float|double|void|unsigned|signed)\s+\w+',
+        r'^_Bool\s+\w+',
+    ]
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        for pattern in c_code_patterns:
+            if re.match(pattern, stripped):
+                code_start_idx = i
+                break
+        if code_start_idx is not None:
+            break
+
+    if code_start_idx is None:
+        # Fallback: find "void main()" and look backwards for declarations
+        for i, line in enumerate(lines):
+            if 'void main()' in line:
+                # Look backwards for the start of C code
+                code_start_idx = i
+                for j in range(i - 1, -1, -1):
+                    stripped = lines[j].strip()
+                    if stripped and not stripped.startswith('//') and not stripped.startswith('/*'):
+                        # Check if this looks like C code
+                        if any(re.match(p, stripped) for p in c_code_patterns) or stripped == '}' or stripped.startswith('void '):
+                            code_start_idx = j
+                        elif stripped and not any(c in stripped for c in ['=', '{', '}', '(', ')', ';']):
+                            # Looks like non-code text, stop here
+                            break
+                break
+
+    if code_start_idx is None:
+        raise ValueError("Could not find start of C code in synthesis output")
+
+    # Extract from code_start_idx to end
+    code_lines = lines[code_start_idx:]
+    code = '\n'.join(code_lines)
+
+    # Remove read_inputs() stub function definition - the game template provides this
+    # Matches patterns like: void read_inputs() { /* INSERT HERE */ }
+    # or: void read_inputs(void) { ... }
+    code = re.sub(
+        r'void\s+read_inputs\s*\(\s*(?:void)?\s*\)\s*\{[^}]*\}\s*',
+        '',
+        code
+    )
+
+    # Optionally rename main() to step_controller() (legacy behavior)
+    if rename_main:
+        code = re.sub(r'\bvoid\s+main\s*\(\s*\)', 'void step_controller()', code)
+    else:
+        # Convert void main() to int main() for C standard compliance
+        code = re.sub(r'\bvoid\s+main\s*\(\s*\)', 'int main()', code)
+
+    return code
+
+
+def generate_game_with_controller(
+    game_name: str,
+    params: dict[str, Any],
+    controller_code: str,
+) -> str:
+    """
+    Generate a complete game file from template and controller code.
+
+    This is the new template-based approach where:
+    1. Game harness is generated from template with config params
+    2. Controller code is appended (keeping main() as the entry point)
+
+    Args:
+        game_name: Name of the game (ice_lake, taxi, cliff_walking, blackjack)
+        params: Game-specific configuration parameters
+        controller_code: The extracted controller code (with void main())
+
+    Returns:
+        Complete C source file ready for compilation
+    """
+    # Generate game harness from template
+    game_harness = generate_game(game_name, params)
+
+    # Build complete file: harness + controller
+    complete_file = (
+        game_harness +
+        CONTROLLER_MARKER_START +
+        controller_code.rstrip() +
+        CONTROLLER_MARKER_END
+    )
+
+    return complete_file
+
+
+def embed_from_template(
+    game_name: str,
+    params: dict[str, Any],
+    synthesis_output: str,
+    output_path: Path,
+) -> Path:
+    """
+    Generate a complete game file from template and synthesis output.
+
+    This is the main entry point for the new template-based workflow.
+
+    Args:
+        game_name: Name of the game (ice_lake, taxi, cliff_walking, blackjack)
+        params: Game-specific configuration parameters
+        synthesis_output: Raw output from synthesis tool
+        output_path: Path to write the complete game file
+
+    Returns:
+        Path to the generated game file
+    """
+    # Extract controller code (keep main() as-is)
+    controller_code = extract_controller_code(synthesis_output, rename_main=False)
+
+    # Generate complete file
+    complete_file = generate_game_with_controller(game_name, params, controller_code)
+
+    # Write to output
+    output_path.write_text(complete_file)
+
+    return output_path
+
+
+def extract_controller_function(synthesis_output: str) -> str:
+    """
+    Legacy function - now calls extract_controller_code for full extraction.
+
+    Kept for backward compatibility.
+    """
+    return extract_controller_code(synthesis_output)
 
 
 def embed_controller(

@@ -1,0 +1,12 @@
+{
+  "bounds": { "xmin": 0, "xmax": 11, "ymin": 0, "ymax": 3 },
+  "cliff": {
+    "y": 0,
+    "x_min": 1,
+    "x_max": 10
+  },
+  "goal": { "x": 11, "y": 0 },
+  "start": { "x": 0, "y": 0 },
+  "max_steps": 1000,
+  "description": "Cliff Walking 4x12 grid - robot must reach goal (11,0) while avoiding cliff at y=0 x=[1,10]"
+}

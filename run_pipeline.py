@@ -3,11 +3,11 @@
 Convenience wrapper for the Spec Validator Pipeline.
 
 Usage:
-    python run_pipeline.py frozen_lake "(F (eq playerX goalX && eq playerY goalY));"
-    python run_pipeline.py frozen_lake "(F goal);" --runs 50 --debug
+    python run_pipeline.py ice_lake
+    python run_pipeline.py taxi --debug
     python run_pipeline.py --help
 
-This is a simpler interface that assumes configs are in configs/{name}.yaml
+This runs all objectives and configurations defined in configs/{name}.yaml
 """
 
 import argparse
@@ -23,13 +23,23 @@ from pipeline import Pipeline, load_config
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Spec Validator Pipeline - Quick Runner",
+        description="Spec Validator Pipeline - Multi-Objective Runner",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python run_pipeline.py frozen_lake "(F (eq playerX goalX && eq playerY goalY));"
-  python run_pipeline.py frozen_lake "(F goal);" --runs 50 --debug
-  python run_pipeline.py frozen_lake --spec-file my_spec.txt
+  python run_pipeline.py ice_lake
+  python run_pipeline.py taxi --debug
+  python run_pipeline.py blackjack
+  python run_pipeline.py cliff_walking
+
+The pipeline will:
+  1. Read objectives and configurations from configs/{name}.yaml
+  2. For each objective, test all its configurations:
+     - Generate TSLMT spec with configuration parameters
+     - Synthesize a controller
+     - Embed controller into game file
+     - Run validation
+  3. Calculate scores (passed/total) per objective
 """,
     )
 
@@ -39,42 +49,39 @@ Examples:
         help="Name of the configuration (looks for configs/{name}.yaml)",
     )
 
-    spec_group = parser.add_mutually_exclusive_group(required=True)
-    spec_group.add_argument(
-        "spec",
-        nargs="?",
-        type=str,
-        help="The liveliness/safety specification (string)",
-    )
-    spec_group.add_argument(
-        "--spec-file",
-        type=str,
-        help="Path to file containing the specification",
-    )
-
-    parser.add_argument(
-        "--runs",
-        type=int,
-        default=None,
-        help="Number of validation runs (overrides config)",
-    )
-
     parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug output",
     )
 
+    parser.add_argument(
+        "--list-configs",
+        action="store_true",
+        help="List available configurations and exit",
+    )
+
     args = parser.parse_args()
+
+    # List configs if requested
+    if args.list_configs:
+        configs_dir = project_root / "configs"
+        if configs_dir.exists():
+            print("Available configurations:")
+            for f in sorted(configs_dir.glob("*.yaml")):
+                print(f"  - {f.stem}")
+        else:
+            print("No configs directory found")
+        return 0
 
     # Find config file
     config_path = project_root / "configs" / f"{args.config_name}.yaml"
     if not config_path.exists():
         print(f"Error: Config file not found: {config_path}", file=sys.stderr)
-        print(f"Available configs in configs/:", file=sys.stderr)
+        print(f"\nAvailable configs:", file=sys.stderr)
         configs_dir = project_root / "configs"
         if configs_dir.exists():
-            for f in configs_dir.glob("*.yaml"):
+            for f in sorted(configs_dir.glob("*.yaml")):
                 print(f"  - {f.stem}", file=sys.stderr)
         return 1
 
@@ -85,56 +92,27 @@ Examples:
         print(f"Error loading config: {e}", file=sys.stderr)
         return 1
 
-    # Get spec
-    if args.spec:
-        spec = args.spec
-    elif args.spec_file:
-        try:
-            spec = Path(args.spec_file).read_text().strip()
-        except Exception as e:
-            print(f"Error reading spec file: {e}", file=sys.stderr)
-            return 1
-    else:
-        print("Error: No spec provided", file=sys.stderr)
-        return 1
-
-    # Print header
-    print("=" * 60)
-    print("  Spec Validator Pipeline")
-    print("=" * 60)
-    print(f"\nConfig: {config.name}")
-    print(f"Boilerplate: {config.boilerplate_path}")
-    print(f"Game: {config.game_path}")
-    print(f"Constraints: {config.constraints_path}")
-
     # Run pipeline
     pipeline = Pipeline(config)
-    result = pipeline.run(
-        spec,
-        runs_override=args.runs,
-        debug_override=args.debug if args.debug else None,
-    )
+    result = pipeline.run(debug_override=args.debug if args.debug else None)
 
-    # Print results
-    print("\n" + "=" * 60)
-    print("  Results")
-    print("=" * 60)
+    # Return exit code based on overall success
+    if result.error_message:
+        print(f"\nPipeline error: {result.error_message}", file=sys.stderr)
+        return 1
 
-    if result.success:
-        print(f"\n{result.summary}")
+    # Calculate overall success rate
+    total_passed = sum(obj.passed for obj in result.objectives)
+    total_configs = sum(obj.total for obj in result.objectives)
 
-        if result.execution:
-            steps = [r.steps for r in result.execution.runs if r.steps is not None]
-            if steps:
-                avg_steps = sum(steps) / len(steps)
-                print(f"\nStep Statistics:")
-                print(f"  Average: {avg_steps:.1f}")
-                print(f"  Min: {min(steps)}")
-                print(f"  Max: {max(steps)}")
+    if total_configs == 0:
+        print("\nNo configurations were run", file=sys.stderr)
+        return 1
 
+    # Return 0 if at least one configuration passed
+    if total_passed > 0:
         return 0
     else:
-        print(f"\nPipeline failed: {result.error_message}", file=sys.stderr)
         return 1
 
 

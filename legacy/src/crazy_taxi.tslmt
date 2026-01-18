@@ -1,0 +1,122 @@
+var Int taxiX
+var Int taxiY
+var Int taxiState     // 0 empty, 1 has passenger, 2 delivered
+var Int loc           // 0 = go pickup, 1 = go dropoff, 2 = done
+
+SPECIFICATION
+
+// Fixed benchmark positions
+passengerX = i0(); passengerY = i0();
+destX = i6(); destY = i0();
+
+// Bounds
+xmin = i0(); xmax = i6();
+ymin = i0(); ymax = i5();
+
+inbounds =
+  gte taxiX xmin && lte taxiX xmax &&
+  gte taxiY ymin && lte taxiY ymax;
+
+// Two barrier cells
+is_barrier =
+  (eq taxiX i2() && eq taxiY i0()) ||
+  (eq taxiX i2() && eq taxiY i1());
+
+// Task predicates
+is_empty = eq taxiState i0();
+has_passenger = eq taxiState i1();
+delivered = eq taxiState i2();
+
+// Location predicates
+at_pickup  = eq taxiX passengerX && eq taxiY passengerY;
+at_dropoff = eq taxiX destX && eq taxiY destY;
+
+// Helpful comparisons (linear)
+x_lt_pick = lt taxiX passengerX;
+x_gt_pick = gt taxiX passengerX;
+y_lt_pick = lt taxiY passengerY;
+y_gt_pick = gt taxiY passengerY;
+
+x_lt_dest = lt taxiX destX;
+x_gt_dest = gt taxiX destX;
+y_lt_dest = lt taxiY destY;
+y_gt_dest = gt taxiY destY;
+
+// Candidate moves
+mL = [taxiX <- sub taxiX i1()] && [taxiY <- taxiY];
+mR = [taxiX <- add taxiX i1()] && [taxiY <- taxiY];
+mU = [taxiX <- taxiX] && [taxiY <- sub taxiY i1()];
+mD = [taxiX <- taxiX] && [taxiY <- add taxiY i1()];
+mS = [taxiX <- taxiX] && [taxiY <- taxiY];
+
+// “Legal move” filters (avoid bounds + barriers after move)
+// We encode legality by checking the *next* coordinate using arithmetic.
+legalL = gte (sub taxiX i1()) xmin && ! ( (eq (sub taxiX i1()) i2()) && (eq taxiY i0()) ) && ! ( (eq (sub taxiX i1()) i2()) && (eq taxiY i1()) );
+legalR = lte (add taxiX i1()) xmax && ! ( (eq (add taxiX i1()) i2()) && (eq taxiY i0()) ) && ! ( (eq (add taxiX i1()) i2()) && (eq taxiY i1()) );
+legalU = gte (sub taxiY i1()) ymin && ! ( (eq taxiX i2()) && (eq (sub taxiY i1()) i0()) ) && ! ( (eq taxiX i2()) && (eq (sub taxiY i1()) i1()) );
+legalD = lte (add taxiY i1()) ymax && ! ( (eq taxiX i2()) && (eq (add taxiY i1()) i0()) ) && ! ( (eq taxiX i2()) && (eq (add taxiY i1()) i1()) );
+
+// Greedy motion toward a goal, with small branching:
+// Prefer moving in x direction first; if blocked, try y; else stay.
+go_pick =
+  (x_lt_pick && legalR && mR) ||
+  (x_gt_pick && legalL && mL) ||
+  (y_lt_pick && legalD && mD) ||
+  (y_gt_pick && legalU && mU) ||
+  mS;
+
+go_dest =
+  (x_lt_dest && legalR && mR) ||
+  (x_gt_dest && legalL && mL) ||
+  (y_lt_dest && legalD && mD) ||
+  (y_gt_dest && legalU && mU) ||
+  mS;
+
+assume {
+  inbounds && !is_barrier;
+  [loc <- i0()];
+  [taxiState <- i0()];
+}
+
+always guarantee {
+  // Always safe
+  inbounds && !is_barrier;
+
+  // Monotone task state (can only stay or advance)
+  (is_empty -> X (is_empty || has_passenger)) &&
+  (has_passenger -> X (has_passenger || delivered)) &&
+  (delivered -> X delivered);
+
+  // loc is monotone too: 0 -> 1 -> 2
+  ([loc <- i0()] -> X ([loc <- i0()] || [loc <- i1()])) &&
+  ([loc <- i1()] -> X ([loc <- i1()] || [loc <- i2()])) &&
+  ([loc <- i2()] -> X [loc <- i2()]);
+
+  // Mode behavior
+  // loc=0: move toward pickup; when at pickup, pick up and switch to loc=1
+  G( [loc <- i0()] ->
+      ( (at_pickup && is_empty) ->
+          ( [taxiState <- i1()] && X [loc <- i1()] )
+      )
+      &&
+      ( (! (at_pickup && is_empty)) ->
+          ( go_pick && X [loc <- i0()] )
+      )
+    );
+
+  // loc=1: move toward dropoff; when at dropoff, deliver and switch to loc=2
+  G( [loc <- i1()] ->
+      ( (at_dropoff && has_passenger) ->
+          ( [taxiState <- i2()] && X [loc <- i2()] )
+      )
+      &&
+      ( (! (at_dropoff && has_passenger)) ->
+          ( go_dest && X [loc <- i1()] )
+      )
+    );
+
+  // loc=2: done; stay put
+  G( [loc <- i2()] -> (mS && X [loc <- i2()]) );
+}
+
+{{GUARANTEE_BLOCK}}

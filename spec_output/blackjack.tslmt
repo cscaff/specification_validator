@@ -1,0 +1,93 @@
+inp Int handValue
+inp Int dealerCard
+inp Bool isSoft
+var Bool shouldHit
+
+SPECIFICATION
+
+/* Blackjack Basic Strategy Controller
+ *
+ * Synthesizes optimal hit/stand decisions based on:
+ * - handValue: Player's current hand total (4-21)
+ * - dealerCard: Dealer's visible upcard (2-11, where 11=Ace)
+ * - isSoft: Whether hand has a usable Ace (counted as 11)
+ *
+ * Basic Strategy (simplified to hit/stand):
+ *
+ * HARD HANDS:
+ *   8 or less: Always Hit
+ *   9-11: Always Hit
+ *   12: Stand vs 4-6, Hit vs 2-3,7-A
+ *   13-16: Stand vs 2-6, Hit vs 7-A
+ *   17+: Always Stand
+ *
+ * SOFT HANDS:
+ *   Soft 13-17: Always Hit
+ *   Soft 18: Stand vs 2-8, Hit vs 9-A
+ *   Soft 19+: Always Stand
+ */
+
+/* Constants for card values */
+DEALER_TWO = i2();
+DEALER_FOUR = i4();
+DEALER_SIX = i6();
+DEALER_NINE = i9();
+DEALER_ACE = i11();
+
+/* Hand value thresholds */
+ELEVEN = i11();
+TWELVE = i12();
+THIRTEEN = i13();
+SIXTEEN = i16();
+SEVENTEEN = i17();
+EIGHTEEN = i18();
+
+/* Valid input ranges */
+MIN_HAND = i4();
+MAX_HAND = i21();
+MIN_DEALER = i2();
+MAX_DEALER = i11();
+
+/* Decision outputs */
+hit = [shouldHit <- true];
+stand = [shouldHit <- false];
+
+/* Dealer card categories */
+dealerWeak = (gte dealerCard DEALER_TWO) && (lte dealerCard DEALER_SIX);
+dealerStrong = (gte dealerCard DEALER_NINE) && (lte dealerCard DEALER_ACE);
+dealerVeryWeak = (gte dealerCard DEALER_FOUR) && (lte dealerCard DEALER_SIX);
+
+/* === WHEN TO HIT (exhaustive condition) === */
+
+/* Hard hand hit conditions */
+hardHitAlways = !isSoft && (lte handValue ELEVEN);
+hardHitTwelve = !isSoft && (eq handValue TWELVE) && !dealerVeryWeak;
+hardHitThirteenToSixteen = !isSoft && (gte handValue THIRTEEN) && (lte handValue SIXTEEN) && !dealerWeak;
+
+/* Soft hand hit conditions */
+softHitSeventeenOrLess = isSoft && (lte handValue SEVENTEEN);
+softHitEighteen = isSoft && (eq handValue EIGHTEEN) && dealerStrong;
+
+/* Combined: ALL conditions where we should HIT */
+shouldHitCondition = hardHitAlways || hardHitTwelve || hardHitThirteenToSixteen || softHitSeventeenOrLess || softHitEighteen;
+
+/* Initial assumptions on inputs */
+assume {
+    (gte handValue MIN_HAND) && (lte handValue MAX_HAND);
+    (gte dealerCard MIN_DEALER) && (lte dealerCard MAX_DEALER);
+}
+
+/* Ongoing assumptions - inputs stay in valid range */
+always assume {
+    (gte handValue MIN_HAND) && (lte handValue MAX_HAND);
+    (gte dealerCard MIN_DEALER) && (lte dealerCard MAX_DEALER);
+}
+
+/* Strategy guarantees */
+always guarantee {
+    /* Core strategy: Hit when shouldHitCondition is true, Stand otherwise */
+    shouldHitCondition -> hit;
+    !shouldHitCondition -> stand;
+}
+
+{{GUARANTEE_BLOCK}}

@@ -1,0 +1,11 @@
+{
+  "bounds": { "xmin": 0, "xmax": 4, "ymin": 0, "ymax": 4 },
+  "barriers": [
+    { "x": 1, "y": 2 }
+  ],
+  "pickup": { "x": 0, "y": 0 },
+  "destination": { "x": 4, "y": 4 },
+  "start": { "x": 2, "y": 2 },
+  "max_steps": 1000,
+  "description": "Taxi 5x5 grid (from Test Specs) - taxi picks up passenger at (0,0) and delivers to (4,4) avoiding barrier at (1,2)"
+}

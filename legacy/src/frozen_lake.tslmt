@@ -3,44 +3,51 @@ var Int playerY
 
 SPECIFICATION
 
+// Grid constants (0..3)
+xmin = i0(); xmax = i3();
+ymin = i0(); ymax = i3();
+
 // Goal
 goalX = i3();
 goalY = i3();
 
-// Bounds
-inbounds = (gte playerX i0() && lte playerX i3()) && (gte playerY i0() && lte playerY i3());
-avoid_holes = ! ((eq playerX i1() && eq playerY i1()) || 
-                (eq playerX i3() && eq playerY i1())  ||
-                (eq playerX i3() && eq playerY i2())  ||
-                (eq playerX i0() && eq playerY i3()));
+// In-bounds predicate
+inbounds =
+  gte playerX xmin && lte playerX xmax &&
+  gte playerY ymin && lte playerY ymax;
 
-// Movements
+// Action macros (each is a full next-state update)
 moveL = [playerX <- sub playerX i1()] && [playerY <- playerY];
 moveR = [playerX <- add playerX i1()] && [playerY <- playerY];
 moveU = [playerX <- playerX] && [playerY <- sub playerY i1()];
 moveD = [playerX <- playerX] && [playerY <- add playerY i1()];
+stay  = [playerX <- playerX] && [playerY <- playerY];
+
+// Hole predicates
+avoid_hole0 = (eq playerX i1() && eq playerY i1());
+avoid_hole1 = (eq playerX i3() && eq playerY i1());
+avoid_hole2 = (eq playerX i3() && eq playerY i2());
+
 
 assume {
-    // eq playerX i0() && eq playerY i0();
-    // inbounds && avoid_holes;
-    inbounds;
+  // Initial state must be in bounds (and thereafter too, but system enforces)
+  inbounds && ! avoid_hole0 && ! avoid_hole1 && ! avoid_hole2;
 }
 
 always guarantee {
-    // Grid Bounds
-    // X (inbounds && avoid_holes);
-    inbounds;
+  // Always keep state within bounds
+  inbounds;
 
-    // Functions
-    moveL || moveR || moveU || moveD;
-
-    // Mutual Exclusion of Movements
-    !(moveL && moveU) && !(moveL && moveD);
-    !(moveR && moveU) && !(moveR && moveD);
+  // Exactly one transition per step:
+  // - take a legal move, or stay if blocked / no legal move needed
+  (
+    moveL ||
+    moveR ||
+    moveU ||
+    moveD ||
+    stay
+  );
 }
 
+{{GUARANTEE_BLOCK}}
 
-guarantee {
-    // Objective
-    F ((eq playerX goalX) && (eq playerY goalY));
-}

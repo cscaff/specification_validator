@@ -16,6 +16,7 @@ def build_spec(
     boilerplate_path: Path,
     input_spec: str,
     output_path: Optional[Path] = None,
+    debug: bool = False,
 ) -> Path:
     """
     Build a complete specification by combining a boilerplate with an input spec.
@@ -60,6 +61,12 @@ def build_spec(
         output_path = Path(temp_path)
         import os
         os.close(fd)
+
+    # Print Spec to Terminal
+    if debug:
+        print("Generated Specification:\n")
+        print(full_spec)
+        print("\nEnd of Specification\n")
 
     output_path.write_text(full_spec)
 

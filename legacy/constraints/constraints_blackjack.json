@@ -1,0 +1,6 @@
+{
+  "hand_value": { "min": 4, "max": 21 },
+  "dealer_card": { "min": 2, "max": 11 },
+  "max_hands": 1000,
+  "description": "Blackjack basic strategy constraints - validates input ranges for hit/stand decisions"
+}

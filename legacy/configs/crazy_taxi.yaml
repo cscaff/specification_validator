@@ -3,24 +3,24 @@
 # This configuration is for the 4x4 frozen lake navigation game.
 # Player starts at (0,0) and must reach goal at (3,3) while avoiding holes.
 
-name: frozen_lake
+name: crazy_taxi
 
 paths:
   # Boilerplate spec with variables, predicates, and always-guarantee blocks
-  boilerplate: boilerplates/frozen_lake.tslmt
+  boilerplate: boilerplates/crazy_taxi.tslmt
 
   # Game file where the synthesized controller will be embedded
-  game: games/frozen_lake_three_game.cpp
+  game: games/taxi_game.cpp
 
   # Constraints for runtime validation
-  constraints: constraints/constraints_lake.json
+  constraints: constraints/constraints_taxi.json
 
   # cJSON library for JSON parsing in game
   cjson_dir: third_party/cjson
 
 synthesis:
   # Issy synthesis tool command
-  command: issy
+  command:  /Users/christianscaff/Documents/Academics/Columbia/Barnard-PL-Lab/issy-2.0-TACAS26/issy
 
   # Synthesis arguments
   args:
@@ -28,12 +28,6 @@ synthesis:
     - --solve
     - --synt
     - --info
-    - --pruning
-    - "1"
-    - --accel-attr
-    - geom-ext
-    - --accel-difficulty
-    - easy
 
 execution:
   # Number of validation runs

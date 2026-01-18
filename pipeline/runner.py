@@ -4,20 +4,19 @@ Runner module for the Spec Validator Pipeline.
 Handles game compilation and execution.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-import shutil
-import signal
+import re
 import subprocess
-import tempfile
-from typing import Optional
+from typing import Optional, Any
 
 
+# Simple Makefile for game compilation (no cJSON dependency)
 MAKEFILE_CONTENT = """
 CC := gcc
-CFLAGS := -std=c11 -O0 -g -Wall -Wextra
+CFLAGS := -std=c11 -O0 -g -Wall
 TARGET := game_binary
-SRC := game.c cJSON.c
+SRC := game.c
 
 all: $(TARGET)
 
@@ -32,34 +31,11 @@ clean:
 @dataclass
 class RunResult:
     """Result of a single game run."""
-    run_number: int
     success: bool
-    return_code: int
-    output: str
     steps: Optional[int] = None
-
-    @property
-    def status_str(self) -> str:
-        return "PASS" if self.success else "FAIL"
-
-
-@dataclass
-class ExecutionResult:
-    """Result of executing multiple game runs."""
-    total_runs: int
-    passed: int
-    failed: int
-    runs: list[RunResult] = field(default_factory=list)
-
-    @property
-    def pass_rate(self) -> float:
-        if self.total_runs == 0:
-            return 0.0
-        return self.passed / self.total_runs
-
-    @property
-    def pass_percentage(self) -> str:
-        return f"{self.pass_rate * 100:.1f}%"
+    return_code: int = 0
+    output: str = ""
+    error_message: Optional[str] = None
 
 
 def build_game(tmp_dir: Path, debug: bool = False) -> bool:
@@ -89,35 +65,44 @@ def build_game(tmp_dir: Path, debug: bool = False) -> bool:
     for line in process.stdout:
         output_lines.append(line)
         if debug:
-            print(line, end="")
+            print(f"    {line}", end="")
 
     process.stdout.close()
     process.wait()
 
+    if process.returncode != 0 and debug:
+        print(f"    Build failed with code {process.returncode}")
+        print("    Output:", "".join(output_lines))
+
     return process.returncode == 0
 
 
-def run_once(
+def run_game_once(
     tmp_dir: Path,
-    config_path: Optional[Path] = None,
+    timeout_steps: int = 1000,
+    config_params: Optional[dict[str, Any]] = None,
     debug: bool = False,
-    timeout: int = 60,
-) -> tuple[int, str]:
+    timeout_seconds: int = 60,
+) -> RunResult:
     """
-    Run the game binary once.
+    Run the game binary once and check for success.
+
+    The game is expected to:
+    - Exit with code 0 on success (goal reached)
+    - Exit with non-zero code on failure (timeout, hazard, etc.)
+    - Print "in X steps" or "X steps" somewhere in output
 
     Args:
-        tmp_dir: Directory containing the compiled game
-        config_path: Optional path to constraints config file
-        debug: If True, print output live
-        timeout: Timeout in seconds
+        tmp_dir: Directory containing the compiled game binary
+        timeout_steps: Maximum steps before considering it a timeout
+        config_params: Game configuration parameters (for validation)
+        debug: If True, print game output live
+        timeout_seconds: Wall-clock timeout in seconds
 
     Returns:
-        Tuple of (return_code, output)
+        RunResult with success status and step count
     """
     cmd = ["./game_binary"]
-    if config_path:
-        cmd.append(str(config_path))
 
     try:
         process = subprocess.Popen(
@@ -133,118 +118,95 @@ def run_once(
         for line in process.stdout:
             output_lines.append(line)
             if debug:
-                print(line, end="")
+                print(f"    {line}", end="")
 
         process.stdout.close()
-        process.wait(timeout=timeout)
+        process.wait(timeout=timeout_seconds)
 
-        return process.returncode, "".join(output_lines)
+        output = "".join(output_lines)
+        return_code = process.returncode
+
+        # Parse steps from output
+        steps = parse_steps_from_output(output)
+
+        # Check for success
+        if return_code == 0:
+            # Goal reached
+            return RunResult(
+                success=True,
+                steps=steps,
+                return_code=return_code,
+                output=output,
+            )
+        else:
+            # Determine failure reason
+            error_msg = determine_failure_reason(output, return_code, steps, timeout_steps)
+            return RunResult(
+                success=False,
+                steps=steps,
+                return_code=return_code,
+                output=output,
+                error_message=error_msg,
+            )
 
     except subprocess.TimeoutExpired:
         process.kill()
-        return -1, "Timeout exceeded"
+        return RunResult(
+            success=False,
+            return_code=-1,
+            error_message=f"Wall-clock timeout ({timeout_seconds}s) exceeded",
+        )
+    except Exception as e:
+        return RunResult(
+            success=False,
+            return_code=-1,
+            error_message=str(e),
+        )
 
 
 def parse_steps_from_output(output: str) -> Optional[int]:
     """Extract the number of steps from game output."""
-    import re
-    match = re.search(r"in (\d+) steps", output)
-    if match:
-        return int(match.group(1))
+    # Try various patterns
+    patterns = [
+        r"in (\d+) steps",
+        r"(\d+) steps",
+        r"Step[s]?: (\d+)",
+        r"Total steps: (\d+)",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, output, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+
     return None
 
 
-def classify_result(return_code: int) -> bool:
-    """Classify a return code as success or failure."""
-    return return_code == 0
+def determine_failure_reason(
+    output: str,
+    return_code: int,
+    steps: Optional[int],
+    timeout_steps: int,
+) -> str:
+    """Determine the reason for a game failure."""
+    output_lower = output.lower()
 
+    # Check for specific failure messages
+    if "hole" in output_lower or "fell" in output_lower:
+        return "Fell into hole"
+    if "cliff" in output_lower:
+        return "Fell off cliff"
+    if "barrier" in output_lower or "obstacle" in output_lower:
+        return "Hit barrier"
+    if "timeout" in output_lower or "step limit" in output_lower:
+        return f"Step timeout ({timeout_steps} steps)"
+    if steps and steps >= timeout_steps:
+        return f"Step timeout ({steps} >= {timeout_steps})"
+    if "bounds" in output_lower or "out of" in output_lower:
+        return "Out of bounds"
 
-def run_game(
-    game_path: Path,
-    cjson_dir: Path,
-    constraints_path: Optional[Path] = None,
-    runs: int = 1,
-    debug: bool = False,
-    timeout: int = 60,
-) -> ExecutionResult:
-    """
-    Run the game multiple times and collect results.
+    # Generic failure
+    if return_code != 0:
+        return f"Exit code {return_code}"
 
-    Args:
-        game_path: Path to the game source file
-        cjson_dir: Path to the cJSON directory
-        constraints_path: Optional path to constraints JSON
-        runs: Number of times to run the game
-        debug: If True, print detailed output
-        timeout: Timeout per run in seconds
-
-    Returns:
-        ExecutionResult with all run statistics
-    """
-    results = []
-    passed = 0
-
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_dir = Path(tmp)
-
-        # Copy game source
-        shutil.copy(game_path, tmp_dir / "game.c")
-
-        # Copy cJSON files
-        shutil.copy(cjson_dir / "cJSON.c", tmp_dir / "cJSON.c")
-        shutil.copy(cjson_dir / "cJSON.h", tmp_dir / "cJSON.h")
-
-        # Build
-        if debug:
-            print(f"Building game in {tmp_dir}...")
-
-        if not build_game(tmp_dir, debug=debug):
-            return ExecutionResult(
-                total_runs=runs,
-                passed=0,
-                failed=runs,
-                runs=[RunResult(i+1, False, -1, "Build failed") for i in range(runs)],
-            )
-
-        # Run N times
-        for i in range(1, runs + 1):
-            if debug:
-                print(f"\n--- Run {i}/{runs} ---")
-
-            rc, output = run_once(
-                tmp_dir,
-                config_path=constraints_path,
-                debug=debug,
-                timeout=timeout,
-            )
-
-            success = classify_result(rc)
-            steps = parse_steps_from_output(output)
-
-            if success:
-                passed += 1
-
-            result = RunResult(
-                run_number=i,
-                success=success,
-                return_code=rc,
-                output=output,
-                steps=steps,
-            )
-            results.append(result)
-
-            # Print error info if not debug (debug already printed)
-            if not debug and not success and rc != 0:
-                if rc < 0:
-                    sig = -rc
-                    sig_name = signal.Signals(sig).name if sig in signal.Signals.__members__.values() else f"SIG{sig}"
-                    print(f"  Run {i}: Terminated by signal {sig_name}")
-                else:
-                    print(f"  Run {i}: Exited with code {rc}")
-
-    return ExecutionResult(
-        total_runs=runs,
-        passed=passed,
-        failed=runs - passed,
-        runs=results,
-    )
+    return "Unknown failure"

@@ -2,11 +2,13 @@
 Configuration module for the Spec Validator Pipeline.
 
 Handles loading and validation of YAML configuration files.
+
+New structure supports multiple objectives, each with multiple configurations.
 """
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 import yaml
 
 
@@ -15,15 +17,11 @@ class PathsConfig:
     """Paths to required files."""
     boilerplate: Path
     game: Path
-    constraints: Path
-    cjson_dir: Path = field(default_factory=lambda: Path("third_party/cjson"))
 
 
 DEFAULT_SYNTHESIS_ARGS = [
-    "--tslmt", "--solve", "--synt", "--info",
-    "--pruning", "1",
-    "--accel-attr", "geom-ext",
-    "--accel-difficulty", "easy"
+    "--tslmt",
+    "--synt",
 ]
 
 
@@ -35,10 +33,32 @@ class SynthesisConfig:
 
 
 @dataclass
-class ExecutionConfig:
-    """Configuration for game execution."""
-    runs: int = 20
-    timeout: int = 60
+class GameConfiguration:
+    """
+    A single game configuration with specific parameters.
+
+    The params dict contains game-specific configuration like:
+    - Ice Lake: grid_size, goal, holes
+    - Taxi: grid_size, pickup, dropoff, barriers
+    - Cliff Walking: grid_size, cliff_min, cliff_max, start_pos, goal_pos
+    - Blackjack: (no additional params)
+    """
+    name: str
+    params: dict[str, Any]
+
+
+@dataclass
+class ObjectiveConfig:
+    """
+    An objective with its guarantee and list of configurations to test.
+
+    The objective is a TSL guarantee string (e.g., "F atGoal && !atHolePos").
+    Configurations are tested against this objective to see how well
+    a synthesized controller generalizes.
+    """
+    objective: str
+    timeout: int
+    configurations: list[GameConfiguration]
 
 
 @dataclass
@@ -46,8 +66,8 @@ class PipelineConfig:
     """Main configuration for the pipeline."""
     name: str
     paths: PathsConfig
-    synthesis: SynthesisConfig = field(default_factory=SynthesisConfig)
-    execution: ExecutionConfig = field(default_factory=ExecutionConfig)
+    synthesis: SynthesisConfig
+    objectives: list[ObjectiveConfig]
     debug: bool = False
 
     # Root directory for resolving relative paths
@@ -66,14 +86,6 @@ class PipelineConfig:
     @property
     def game_path(self) -> Path:
         return self.resolve_path(self.paths.game)
-
-    @property
-    def constraints_path(self) -> Path:
-        return self.resolve_path(self.paths.constraints)
-
-    @property
-    def cjson_path(self) -> Path:
-        return self.resolve_path(self.paths.cjson_dir)
 
 
 def load_config(config_path: str | Path, root_dir: Optional[Path] = None) -> PipelineConfig:
@@ -107,8 +119,6 @@ def load_config(config_path: str | Path, root_dir: Optional[Path] = None) -> Pip
     paths = PathsConfig(
         boilerplate=Path(paths_raw.get("boilerplate", "")),
         game=Path(paths_raw.get("game", "")),
-        constraints=Path(paths_raw.get("constraints", "")),
-        cjson_dir=Path(paths_raw.get("cjson_dir", "third_party/cjson")),
     )
 
     # Parse synthesis config
@@ -118,18 +128,30 @@ def load_config(config_path: str | Path, root_dir: Optional[Path] = None) -> Pip
         args=synth_raw.get("args", DEFAULT_SYNTHESIS_ARGS.copy()),
     )
 
-    # Parse execution config
-    exec_raw = raw.get("execution", {})
-    execution = ExecutionConfig(
-        runs=exec_raw.get("runs", 20),
-        timeout=exec_raw.get("timeout", 60),
-    )
+    # Parse run_configuration (objectives and their configurations)
+    objectives = []
+    run_config = raw.get("run_configuration", [])
+
+    for obj_raw in run_config:
+        # Parse configurations for this objective
+        configs = []
+        for i, cfg_raw in enumerate(obj_raw.get("configurations", [])):
+            config_name = cfg_raw.get("name", f"config_{i+1}")
+            # Remove 'name' from params, keep everything else
+            params = {k: v for k, v in cfg_raw.items() if k != "name"}
+            configs.append(GameConfiguration(name=config_name, params=params))
+
+        objectives.append(ObjectiveConfig(
+            objective=obj_raw.get("objective", "").strip(),
+            timeout=obj_raw.get("timeout", 1000),
+            configurations=configs,
+        ))
 
     return PipelineConfig(
         name=raw.get("name", "unnamed"),
         paths=paths,
         synthesis=synthesis,
-        execution=execution,
+        objectives=objectives,
         debug=raw.get("debug", False),
         root_dir=root_dir,
     )
@@ -144,19 +166,16 @@ def validate_config(config: PipelineConfig) -> list[str]:
     """
     errors = []
 
-    if not config.boilerplate_path.exists():
-        errors.append(f"Boilerplate file not found: {config.boilerplate_path}")
+    # Note: boilerplate and game paths are no longer required since we use
+    # template-based generation (spec_generator.py and game_templates.py)
 
-    if not config.game_path.exists():
-        errors.append(f"Game file not found: {config.game_path}")
+    if not config.objectives:
+        errors.append("No objectives defined in run_configuration")
 
-    if not config.constraints_path.exists():
-        errors.append(f"Constraints file not found: {config.constraints_path}")
-
-    if not config.cjson_path.exists():
-        errors.append(f"cJSON directory not found: {config.cjson_path}")
-
-    if config.execution.runs < 1:
-        errors.append(f"Number of runs must be >= 1, got {config.execution.runs}")
+    for i, obj in enumerate(config.objectives):
+        if not obj.objective:
+            errors.append(f"Objective {i+1} has no objective string")
+        if not obj.configurations:
+            errors.append(f"Objective '{obj.objective}' has no configurations")
 
     return errors

@@ -49,6 +49,9 @@ def synthesize(
 
     full_command = [command] + args + [str(spec_path)]
 
+    # DEBUG
+    print(f"Running synthesis command: {' '.join(full_command)}")
+
     start_time = time.time()
 
     try:

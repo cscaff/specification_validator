@@ -1,0 +1,36 @@
+# Frozen Lake Pipeline Configuration
+#
+# This configuration is for the 4x4 frozen lake navigation game.
+# Player starts at (0,0) and must reach goal at (3,3) while avoiding holes.
+
+name: frozen_lake
+
+paths:
+  # Boilerplate spec with variables, predicates, and always-guarantee blocks
+  boilerplate: boilerplates/frozen_lake.tslmt
+
+  # Game file where the synthesized controller will be embedded
+  game: games/frozen_lake_three_game.cpp
+
+  # Constraints for runtime validation
+  constraints: constraints/constraints_lake.json
+
+  # cJSON library for JSON parsing in game
+  cjson_dir: third_party/cjson
+
+synthesis:
+  # Issy synthesis tool command
+  command: /Users/christianscaff/Documents/Academics/Columbia/Barnard-PL-Lab/issy-2.0-TACAS26/issy
+
+  # Synthesis arguments
+  args:
+    --encode-sweap
+execution:
+  # Number of validation runs
+  runs: 20
+
+  # Timeout per run in seconds
+  timeout: 60
+
+# Enable debug output (synthesis logs, detailed run info)
+debug: true
