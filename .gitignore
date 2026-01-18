@@ -32,9 +32,5 @@ Thumbs.db
 game_binary
 *.o
 
-# Logs
-logs/*.log
-
-# Debug Outputs
-spec_outputs/
-games/
+# Output folders - contents ignored via per-folder .gitignore files
+# (folders are tracked, contents are not)
