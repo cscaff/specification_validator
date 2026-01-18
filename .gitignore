@@ -33,7 +33,7 @@ game_binary
 *.o
 
 # Logs
-logs/
+logs/*.log
 
 # Debug Outputs
 spec_outputs/
