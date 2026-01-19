@@ -18,9 +18,9 @@ synthesis:
 debug: true
 
 run_configuration:
-  # Objective: Correct basic strategy decisions
-  - objective: "G (shouldHitCondition -> hit) && G (!shouldHitCondition -> stand)"
-    timeout: 100
-    configurations:
-      - name: "Basic strategy test"
-        # No additional params needed for blackjack
+  - name: "Basic strategy test"
+    # No additional params needed for blackjack
+    objectives:
+      # Objective: Correct basic strategy decisions
+      - objective: "G (shouldHitCondition -> hit) && G (!shouldHitCondition -> stand)"
+        timeout: 100

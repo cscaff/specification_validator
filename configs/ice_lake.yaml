@@ -16,40 +16,49 @@ synthesis:
 debug: true
 
 run_configuration:
-  # Objective 1: Reach goal while avoiding holes
-  - objective: "F ((eq x goalx) && (eq y goaly)) && G (X ((eq x hole0x && eq y hole0y) <-> (eq x hole1x && eq y hole1y) || (eq x hole2x && eq y hole2y)))"
-    timeout: 1000
-    configurations:
-      - name: "4x4 single hole"
-        grid_size: 4
-        start_pos: {x: 0, y: 0}
-        goal: {x: 3, y: 3}
-        holes:
-          - {x: 1, y: 1}
-          - {x: 3, y: 2}
-          - {x: 1, y: 3}
+  - name: "4x4 single hole"
+    grid_size: 4
+    start_pos: {x: 0, y: 0}
+    goal: {x: 3, y: 3}
+    holes:
+      - {x: 1, y: 1}
+      - {x: 3, y: 2}
+      - {x: 1, y: 3}
+    objectives:
+      # Objective 1: Reach goal while avoiding holes
+      - objective: "F ((eq x goalx) && (eq y goaly)) && G (X ((eq x hole0x && eq y hole0y) <-> (eq x hole1x && eq y hole1y) || (eq x hole2x && eq y hole2y)))"
+        timeout: 1000
 
-  #     - name: "4x4 single hole"
-  #       grid_size: 4
-  #       start_pos: {x: 0, y: 0}
-  #       goal: {x: 3, y: 3}
-  #       holes:
-  #         - {x: 2, y: 2}
+  #     # Objective 2: Just reach goal (relaxed - no hole avoidance in objective)
+  #     - objective: "F atGoal"
+  #       timeout: 1000
 
-  # # Objective 2: Just reach goal (relaxed - no hole avoidance in objective)
-  # - objective: "F atGoal"
-  #   timeout: 1000
-  #   configurations:
-  #     - name: "4x4 single hole"
-  #       grid_size: 4
-  #       start_pos: {x: 0, y: 0}
-  #       goal: {x: 3, y: 3}
-  #       holes:
-  #         - {x: 3, y: 2}
+  # - name: "4x4 single hole"
+  #   grid_size: 4
+  #   start_pos: {x: 0, y: 0}
+  #   goal: {x: 3, y: 3}
+  #   holes:
+  #     - {x: 2, y: 2}
+  #   objectives:
+  #     - objective: "F ((eq x goalx) && (eq y goaly)) && G (X ((eq x hole0x && eq y hole0y) <-> (eq x hole1x && eq y hole1y) || (eq x hole2x && eq y hole2y)))"
+  #       timeout: 1000
 
-  #     - name: "4x4 single hole"
-  #       grid_size: 4
-  #       start_pos: {x: 0, y: 0}
-  #       goal: {x: 3, y: 3}
-  #       holes:
-  #         - {x: 2, y: 1}
+  # - name: "4x4 single hole"
+  #   grid_size: 4
+  #   start_pos: {x: 0, y: 0}
+  #   goal: {x: 3, y: 3}
+  #   holes:
+  #     - {x: 3, y: 2}
+  #   objectives:
+  #     - objective: "F atGoal"
+  #       timeout: 1000
+
+  # - name: "4x4 single hole"
+  #   grid_size: 4
+  #   start_pos: {x: 0, y: 0}
+  #   goal: {x: 3, y: 3}
+  #   holes:
+  #     - {x: 2, y: 1}
+  #   objectives:
+  #     - objective: "F atGoal"
+  #       timeout: 1000

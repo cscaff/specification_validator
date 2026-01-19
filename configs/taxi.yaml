@@ -16,26 +16,26 @@ synthesis:
 debug: true
 
 run_configuration:
-  # Objective 1: Complete delivery
-  - objective: "F delivered && G !atBarrier"
-    timeout: 1000
-    configurations:
-      - name: "4x4 compact"
-        grid_size: 4
-        start_pos: {x: 2, y: 2}
-        pickup: {x: 0, y: 0}
-        dropoff: {x: 3, y: 3}
-        barriers:
-          - {x: 1, y: 1}
+  - name: "4x4 compact"
+    grid_size: 4
+    start_pos: {x: 2, y: 2}
+    pickup: {x: 0, y: 0}
+    dropoff: {x: 3, y: 3}
+    barriers:
+      - {x: 1, y: 1}
+    objectives:
+      # Objective 1: Complete delivery
+      - objective: "F delivered && G !atBarrier"
+        timeout: 1000
 
-  # Objective 2: Same but different pickup/dropoff
-  - objective: "F delivered && G !atBarrier"
-    timeout: 1000
-    configurations:
-      - name: "4x4 reverse route"
-        grid_size: 4
-        start_pos: {x: 2, y: 2}
-        pickup: {x: 3, y: 3}
-        dropoff: {x: 0, y: 0}
-        barriers:
-          - {x: 2, y: 1}
+  - name: "4x4 reverse route"
+    grid_size: 4
+    start_pos: {x: 2, y: 2}
+    pickup: {x: 3, y: 3}
+    dropoff: {x: 0, y: 0}
+    barriers:
+      - {x: 2, y: 1}
+    objectives:
+      # Objective 2: Same but different pickup/dropoff
+      - objective: "F delivered && G !atBarrier"
+        timeout: 1000
