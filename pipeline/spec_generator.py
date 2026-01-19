@@ -34,79 +34,49 @@ def generate_ice_lake_spec(params: dict[str, Any], objective: str) -> str:
     # Generate hole constants
     hole_constants = []
     for i, hole in enumerate(holes):
-        hole_constants.append(f"HOLE_{i}_X = i{hole['x']}();")
-        hole_constants.append(f"HOLE_{i}_Y = i{hole['y']}();")
-
+        hole_constants.append(f"hole{i}x = i{hole['x']}();")
+        hole_constants.append(f"hole{i}y = i{hole['y']}();")
     hole_constants_str = "\n".join(hole_constants) if hole_constants else "/* No holes */"
-
-    # Generate atHolePos predicate (OR of all hole positions)
-    if len(holes) == 0:
-        at_hole_pos = "false"
-    elif len(holes) == 1:
-        at_hole_pos = "(eq x HOLE_0_X) && (eq y HOLE_0_Y)"
-    else:
-        hole_checks = [f"((eq x HOLE_{i}_X) && (eq y HOLE_{i}_Y))" for i in range(len(holes))]
-        at_hole_pos = " || ".join(hole_checks)
 
     spec = f'''var Int x
 var Int y
-var Bool atGoal
 
 SPECIFICATION
 
 /* Ice Lake: Robot navigates {grid_size}x{grid_size} grid avoiding holes to reach the goal */
 /* Goal: ({goal_x},{goal_y}), Start: ({start_x},{start_y}), Holes: {len(holes)} */
 
-GOAL_X = i{goal_x}();
-GOAL_Y = i{goal_y}();
-START_X = i{start_x}();
-START_Y = i{start_y}();
+goalx = i{goal_x}();
+goaly = i{goal_y}();
+startx = i{start_x}();
+starty = i{start_y}();
 BOUND_MIN = i0();
 BOUND_MAX = i{bound_max}();
 
 /* Hole positions */
 {hole_constants_str}
 
-/* Movement predicates */
-stayX = [x <- x];
-stayY = [y <- y];
-moveRight = [x <- add x i1()] && [y <- y];
-moveLeft = [x <- sub x i1()] && [y <- y];
-moveUp = [y <- add y i1()] && [x <- x];
-moveDown = [y <- sub y i1()] && [x <- x];
-
 /* Position predicates */
-atGoalPos = (eq x GOAL_X) && (eq y GOAL_Y);
 inBounds = (gte x BOUND_MIN) && (lte x BOUND_MAX) && (gte y BOUND_MIN) && (lte y BOUND_MAX);
 
-/* Hole position check - true if on any hole */
-atHolePos = {at_hole_pos};
+/* Potential Variable Updates */
+xMoves = [x <- x] || [x <- add x i1()] || [x <- sub x i1()];
+yMoves = [y <- y] || [y <- add y i1()] || [y <- sub y i1()];
 
 assume {{
-    eq x START_X;
-    eq y START_Y;
+    eq x startx;
+    eq y starty;
 }}
 
 guarantee {{
     /* Initial state */
-    stayX && stayY; /* && [atGoal <- false]; */
+    [x <- x] && [y <- y];
 
     /* Stay in bounds */
     G inBounds;
 
-    /* Movement: exactly one direction or stay */
-    X G ((stayX && stayY) ||
-         (moveRight && (lt x BOUND_MAX)) ||
-         (moveLeft && (gt x BOUND_MIN)) ||
-         (moveUp && (lt y BOUND_MAX)) ||
-         (moveDown && (gt y BOUND_MIN)));
-
-    /* Goal flag: set when reaching goal */
-    /*
-    X G (atGoalPos -> [atGoal <- true]);
-    X G (atGoal -> [atGoal <- true]);
-    X G (!atGoalPos && !atGoal -> [atGoal <- false]);
-    */
+    /* Movement */
+    X G ((xMoves && [y <- y]) || ([x <- x] && yMoves));
 
     /* Objective */
     {objective};
@@ -261,13 +231,12 @@ def generate_cliff_walking_spec(params: dict[str, Any], objective: str) -> str:
     has_cliff = cliff_min < cliff_max
 
     if has_cliff:
-        cliff_predicate = f"(eq y CLIFF_Y) && (gte x CLIFF_X_MIN) && (lte x CLIFF_X_MAX)"
+        cliff_predicate = f"(eq y cliffY) && (gte x cliffminx) && (lte x cliffmaxx)"
     else:
         cliff_predicate = "false"
 
     spec = f'''var Int x
 var Int y
-var Bool atGoal
 
 SPECIFICATION
 
@@ -281,23 +250,18 @@ MAX_Y = i{max_y}();
 
 START_X = i{start_x}();
 START_Y = i{start_y}();
-GOAL_X = i{goal_x}();
-GOAL_Y = i{goal_y}();
+goalX = i{goal_x}();
+goalY = i{goal_y}();
 
-CLIFF_Y = i0();
-CLIFF_X_MIN = i{cliff_min}();
-CLIFF_X_MAX = i{cliff_max}();
+cliffY = i0();
+cliffXMin = i{cliff_min}();
+cliffXMax = i{cliff_max}();
 
-/* Movement predicates */
-stayX = [x <- x];
-stayY = [y <- y];
-moveRight = [x <- add x i1()] && [y <- y];
-moveLeft = [x <- sub x i1()] && [y <- y];
-moveUp = [y <- add y i1()] && [x <- x];
-moveDown = [y <- sub y i1()] && [x <- x];
+/* Potential Variable Updates */
+xMoves = [x <- x] || [x <- add x i1()] || [x <- sub x i1()];
+yMoves = [y <- y] || [y <- add y i1()] || [y <- sub y i1()];
 
 /* Position predicates */
-atGoalPos = (eq x GOAL_X) && (eq y GOAL_Y);
 inBounds = (gte x MIN_X) && (lte x MAX_X) && (gte y MIN_Y) && (lte y MAX_Y);
 
 /* Cliff check */
@@ -310,28 +274,13 @@ assume {{
 
 guarantee {{
     /* Initial state */
-    stayX && stayY && [atGoal <- false];
+    /* [x <- x] && [y <- y]; */
 
     /* Stay in bounds */
     G inBounds;
 
-    /* Never on cliff */
-    G !onCliff;
-
-    /* Movement: exactly one direction or stay */
-    X G ((stayX && stayY) ||
-         (moveRight && (lt x MAX_X)) ||
-         (moveLeft && (gt x MIN_X)) ||
-         (moveUp && (lt y MAX_Y)) ||
-         (moveDown && (gt y MIN_Y)));
-
-    /* Goal flag: set when reaching goal */
-    X G (atGoalPos -> [atGoal <- true]);
-    X G (atGoal -> [atGoal <- true]);
-    X G (!atGoalPos && !atGoal -> [atGoal <- false]);
-
-    /* Once at goal, stay there */
-    X G (atGoal -> stayX && stayY);
+    /* Movement */
+    G ((xMoves && [y <- y]) || ([x <- x] && yMoves));
 
     /* Objective */
     {objective};

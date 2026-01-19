@@ -72,7 +72,6 @@ static int num_holes = NUM_HOLES;
 static int step_count = 0;
 
 /* Forward declarations for controller state variables */
-extern bool atGoal;
 extern int x;
 extern int y;
 
@@ -119,7 +118,7 @@ void read_inputs(void) {{
     }}
 
     /* Check for goal */
-    if (at_goal(x, y) || atGoal) {{
+    if (at_goal(x, y)) {{
         printf("SUCCESS: Goal reached at (%d,%d) in %d steps\\n", x, y, step_count);
         exit(0);
     }}
@@ -318,7 +317,6 @@ def generate_cliff_walking_game(params: dict[str, Any]) -> str:
 static int step_count = 0;
 
 /* Forward declarations for controller state variables */
-extern bool atGoal;
 extern int x;
 extern int y;
 
@@ -360,7 +358,7 @@ void read_inputs(void) {{
     }}
 
     /* Check for goal */
-    if (at_goal(x, y) || atGoal) {{
+    if (at_goal(x, y)) {{
         printf("SUCCESS: Goal reached at (%d,%d) in %d steps\\n", x, y, step_count);
         exit(0);
     }}

@@ -10,14 +10,16 @@ synthesis:
   args:
     - "--tslmt"
     - "--synt"
+    # - "--pruning"
+    # - "1"
 
-  timeout_minutes: 5  # Skip configuration if synthesis takes longer than 5 minutes
+  timeout_minutes: 10  # Skip configuration if synthesis takes longer than 5 minutes
 
 debug: true
 
 run_configuration:
   # Objective: Reach goal while avoiding cliff
-  - objective: "F atGoal && G !onCliff"
+  - objective: "F (eq x goalX && eq y goalY) && (G (X (eq y goalY -> eq x goalX)))"
     timeout: 1000
     configurations:
       - name: "Standard 12x4 cliff"
@@ -28,22 +30,22 @@ run_configuration:
         start_pos: {x: 0, y: 0}
         goal_pos: {x: 11, y: 0}
 
-      - name: "Smaller 8x4"
-        grid_size: 8
-        grid_rows: 4
-        cliff_min: 1
-        cliff_max: 6
-        start_pos: {x: 0, y: 0}
-        goal_pos: {x: 7, y: 0}
+  #     - name: "Smaller 8x4"
+  #       grid_size: 8
+  #       grid_rows: 4
+  #       cliff_min: 1
+  #       cliff_max: 6
+  #       start_pos: {x: 0, y: 0}
+  #       goal_pos: {x: 7, y: 0}
 
-  # Objective: Just reach goal (relaxed)
-  - objective: "F atGoal"
-    timeout: 1000
-    configurations:
-      - name: "Standard 12x4 cliff"
-        grid_size: 12
-        grid_rows: 4
-        cliff_min: 1
-        cliff_max: 10
-        start_pos: {x: 0, y: 0}
-        goal_pos: {x: 11, y: 0}
+  # # Objective: Just reach goal (relaxed)
+  # - objective: "F atGoal"
+  #   timeout: 1000
+  #   configurations:
+  #     - name: "Standard 12x4 cliff"
+  #       grid_size: 12
+  #       grid_rows: 4
+  #       cliff_min: 1
+  #       cliff_max: 10
+  #       start_pos: {x: 0, y: 0}
+  #       goal_pos: {x: 11, y: 0}
