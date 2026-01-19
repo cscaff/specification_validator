@@ -69,14 +69,11 @@ assume {{
 }}
 
 guarantee {{
-    /* Initial state */
-    [x <- x] && [y <- y];
-
     /* Stay in bounds */
     G inBounds;
 
     /* Movement */
-    X G ((xMoves && [y <- y]) || ([x <- x] && yMoves));
+    G ((xMoves && [y <- y]) || ([x <- x] && yMoves));
 
     /* Objective */
     {objective};
@@ -273,9 +270,6 @@ assume {{
 }}
 
 guarantee {{
-    /* Initial state */
-    /* [x <- x] && [y <- y]; */
-
     /* Stay in bounds */
     G inBounds;
 

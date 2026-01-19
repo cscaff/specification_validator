@@ -17,6 +17,112 @@ CONTROLLER_MARKER_START = "\n/* ======================================== CONTROL
 CONTROLLER_MARKER_END = "\n/* ======================================== CONTROLLER END ======================================== */\n"
 
 
+def fix_atomic_updates(code: str, state_vars: Optional[list[str]] = None) -> str:
+    """
+    Fix sequential variable updates to be atomic.
+
+    The issy synthesis tool generates C code that updates state variables
+    sequentially, but TSL semantics require atomic updates where all new
+    values are computed from the current state before any assignments.
+
+    This function transforms patterns like:
+        x = expr1;
+        y = expr2;  // expr2 may reference x, getting wrong (updated) value
+
+    Into:
+        { int _new_x = expr1; int _new_y = expr2; x = _new_x; y = _new_y; }
+
+    This ensures expr2 sees the original value of x, not the updated one.
+
+    Args:
+        code: The C controller code
+        state_vars: List of state variable names to fix (default: ["x", "y"])
+
+    Returns:
+        Fixed C code with atomic updates
+    """
+    if state_vars is None:
+        state_vars = ["x", "y"]
+
+    lines = code.split('\n')
+    result_lines = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+
+        # Check if this line is an assignment to a state variable
+        # Pattern: "x = expr;" where x is a state var (not "int x = ...")
+        first_var = None
+        first_expr = None
+
+        for var in state_vars:
+            # Match "var = expr;" but not "int var = ..." or "var =="
+            pattern = rf'^({var})\s*=\s*(.+);$'
+            match = re.match(pattern, stripped)
+            if match:
+                first_var = match.group(1)
+                first_expr = match.group(2)
+                break
+
+        if first_var is None:
+            # Not a state var assignment, keep as-is
+            result_lines.append(line)
+            i += 1
+            continue
+
+        # Found first state var assignment, look for more consecutive ones
+        indent = line[:len(line) - len(line.lstrip())]
+        assignments = [(first_var, first_expr)]
+        j = i + 1
+
+        while j < len(lines):
+            next_line = lines[j]
+            next_stripped = next_line.strip()
+
+            # Check if next line is also a state var assignment
+            found_next = False
+            for var in state_vars:
+                if var == first_var:
+                    continue  # Don't match same var twice
+                pattern = rf'^({var})\s*=\s*(.+);$'
+                match = re.match(pattern, next_stripped)
+                if match and match.group(1) not in [a[0] for a in assignments]:
+                    assignments.append((match.group(1), match.group(2)))
+                    found_next = True
+                    break
+
+            if found_next:
+                j += 1
+            else:
+                break
+
+        # If we found multiple state var assignments, make them atomic
+        if len(assignments) > 1:
+            # Generate atomic update block
+            result_lines.append(f"{indent}{{ /* atomic update */")
+
+            # First, compute all new values using original state
+            for var, expr in assignments:
+                result_lines.append(f"{indent}  int _new_{var} = {expr};")
+
+            # Then, assign all at once
+            for var, _ in assignments:
+                result_lines.append(f"{indent}  {var} = _new_{var};")
+
+            result_lines.append(f"{indent}}}")
+
+            # Skip the lines we processed
+            i = j
+        else:
+            # Single assignment, keep as-is
+            result_lines.append(line)
+            i += 1
+
+    return '\n'.join(result_lines)
+
+
 def extract_controller_code(synthesis_output: str, rename_main: bool = False, inject_start_pos: bool = False) -> str:
     """
     Extract the complete controller code from synthesis output, including
@@ -111,6 +217,11 @@ def extract_controller_code(synthesis_output: str, rename_main: bool = False, in
             r'\1\n  x = START_X; y = START_Y;',
             code
         )
+
+    # Fix the issy bug where state variables are updated sequentially instead of atomically.
+    # This ensures that when computing new values for x and y, both use the original
+    # state values rather than y seeing an already-updated x.
+    code = fix_atomic_updates(code, state_vars=["x", "y"])
 
     return code
 
