@@ -3,11 +3,12 @@
 Convenience wrapper for the Spec Validator Pipeline.
 
 Usage:
-    python run_pipeline.py ice_lake
-    python run_pipeline.py taxi --debug
+    python run_pipeline.py ice_lake                       # uses configs/ice_lake.yaml
+    python run_pipeline.py taxi --debug                   # uses configs/taxi.yaml with debug
+    python run_pipeline.py taxi path/to/custom.yaml       # uses custom config for taxi game
     python run_pipeline.py --help
 
-This runs all objectives and configurations defined in configs/{name}.yaml
+This runs all objectives and configurations defined in the config file.
 """
 
 import argparse
@@ -27,13 +28,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python run_pipeline.py ice_lake
-  python run_pipeline.py taxi --debug
-  python run_pipeline.py blackjack
-  python run_pipeline.py cliff_walking
+  python run_pipeline.py ice_lake                       # uses configs/ice_lake.yaml
+  python run_pipeline.py taxi --debug                   # uses configs/taxi.yaml
+  python run_pipeline.py taxi path/to/custom.yaml       # uses custom config for taxi
+  python run_pipeline.py cliff_walking ./my_config.yaml # uses custom config for cliff_walking
 
 The pipeline will:
-  1. Read objectives and configurations from configs/{name}.yaml
+  1. Read objectives and configurations from the config file
   2. For each objective, test all its configurations:
      - Generate TSLMT spec with configuration parameters
      - Synthesize a controller
@@ -44,9 +45,17 @@ The pipeline will:
     )
 
     parser.add_argument(
-        "config_name",
+        "game_name",
         type=str,
-        help="Name of the configuration (looks for configs/{name}.yaml)",
+        help="Game type (ice_lake, taxi, cliff_walking, blackjack)",
+    )
+
+    parser.add_argument(
+        "config_file",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Optional path to custom config file (defaults to configs/{game_name}.yaml)",
     )
 
     parser.add_argument(
@@ -74,16 +83,26 @@ The pipeline will:
             print("No configs directory found")
         return 0
 
-    # Find config file
-    config_path = project_root / "configs" / f"{args.config_name}.yaml"
-    if not config_path.exists():
-        print(f"Error: Config file not found: {config_path}", file=sys.stderr)
-        print(f"\nAvailable configs:", file=sys.stderr)
-        configs_dir = project_root / "configs"
-        if configs_dir.exists():
-            for f in sorted(configs_dir.glob("*.yaml")):
-                print(f"  - {f.stem}", file=sys.stderr)
-        return 1
+    # Determine config file path
+    if args.config_file:
+        # User specified a custom config file
+        config_path = Path(args.config_file)
+        if not config_path.is_absolute():
+            config_path = Path.cwd() / config_path
+        if not config_path.exists():
+            print(f"Error: Config file not found: {config_path}", file=sys.stderr)
+            return 1
+    else:
+        # Use default config based on game name
+        config_path = project_root / "configs" / f"{args.game_name}.yaml"
+        if not config_path.exists():
+            print(f"Error: Config file not found: {config_path}", file=sys.stderr)
+            print(f"\nAvailable configs:", file=sys.stderr)
+            configs_dir = project_root / "configs"
+            if configs_dir.exists():
+                for f in sorted(configs_dir.glob("*.yaml")):
+                    print(f"  - {f.stem}", file=sys.stderr)
+            return 1
 
     # Load config
     try:
@@ -91,6 +110,9 @@ The pipeline will:
     except Exception as e:
         print(f"Error loading config: {e}", file=sys.stderr)
         return 1
+
+    # Override the game name from command line (in case custom config has different name)
+    config.name = args.game_name
 
     # Run pipeline
     pipeline = Pipeline(config)
