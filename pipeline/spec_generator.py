@@ -9,6 +9,11 @@ parameters and produces a complete TSLMT spec.
 from typing import Any
 
 
+def get_default_moves(var_name: str) -> str:
+    """Return the default moves expression for a variable: identity, +1, -1."""
+    return f"[{var_name} <- {var_name}] || [{var_name} <- add {var_name} i1()] || [{var_name} <- sub {var_name} i1()]"
+
+
 def generate_ice_lake_spec(params: dict[str, Any], objective: str) -> str:
     """
     Generate an Ice Lake TSLMT specification.
@@ -38,6 +43,12 @@ def generate_ice_lake_spec(params: dict[str, Any], objective: str) -> str:
         hole_constants.append(f"hole{i}y = i{hole['y']}();")
     hole_constants_str = "\n".join(hole_constants) if hole_constants else "/* No holes */"
 
+    # Get custom variable updates if specified (raw TSL expressions)
+    # If not specified, use default: identity, +1, -1
+    variable_updates = params.get("variable_updates", {})
+    x_moves = variable_updates.get("x", get_default_moves("x"))
+    y_moves = variable_updates.get("y", get_default_moves("y"))
+
     spec = f'''var Int x
 var Int y
 
@@ -60,8 +71,8 @@ BOUND_MAX = i{bound_max}();
 inBounds = (gte x BOUND_MIN) && (lte x BOUND_MAX) && (gte y BOUND_MIN) && (lte y BOUND_MAX);
 
 /* Potential Variable Updates */
-xMoves = [x <- x] || [x <- add x i1()] || [x <- sub x i1()];
-yMoves = [y <- y] || [y <- add y i1()] || [y <- sub y i1()];
+xMoves = {x_moves};
+yMoves = {y_moves};
 
 assume {{
     eq x startx;
@@ -87,6 +98,8 @@ def generate_taxi_spec(params: dict[str, Any], objective: str) -> str:
     Generate a Taxi TSLMT specification.
 
     Args:
+        params: Configuration with grid_size, pickup, dropoff, locations, start_pos
+        objective: The TSL guarantee objective
         params: Configuration with grid_size, barriers, start_pos, colored_cells, pickup_color, dropoff_color
         objective: The TSL guarantee objective (e.g., "F (eq x DEST_X && eq y DEST_Y && passengerInTaxi)")
 
@@ -143,6 +156,7 @@ def generate_taxi_spec(params: dict[str, Any], objective: str) -> str:
 
     spec = f'''var Int x
 var Int y
+var Bool passengerInTaxi
 var Bool passengerInTaxi
 
 SPECIFICATION
@@ -230,14 +244,11 @@ def generate_cliff_walking_spec(params: dict[str, Any], objective: str) -> str:
     start_x = start_pos.get("x", 0)
     start_y = start_pos.get("y", 0)
 
-    # Cliff is typically at y=0, x from cliff_min to cliff_max
-    # If cliff_min == cliff_max == 0, there's no cliff
-    has_cliff = cliff_min < cliff_max
-
-    if has_cliff:
-        cliff_predicate = f"(eq y cliffY) && (gte x cliffminx) && (lte x cliffmaxx)"
-    else:
-        cliff_predicate = "false"
+    # Get custom variable updates if specified (raw TSL expressions)
+    # If not specified, use default: identity, +1, -1
+    variable_updates = params.get("variable_updates", {})
+    x_moves = variable_updates.get("x", get_default_moves("x"))
+    y_moves = variable_updates.get("y", get_default_moves("y"))
 
     spec = f'''var Int x
 var Int y
@@ -254,22 +265,19 @@ MAX_Y = i{max_y}();
 
 START_X = i{start_x}();
 START_Y = i{start_y}();
-goalX = i{goal_x}();
-goalY = i{goal_y}();
+goalx = i{goal_x}();
+goaly = i{goal_y}();
 
-cliffY = i0();
+cliffy = i0();
 cliffXMin = i{cliff_min}();
 cliffXMax = i{cliff_max}();
-
-/* Potential Variable Updates */
-xMoves = [x <- x] || [x <- add x i1()] || [x <- sub x i1()];
-yMoves = [y <- y] || [y <- add y i1()] || [y <- sub y i1()];
 
 /* Position predicates */
 inBounds = (gte x MIN_X) && (lte x MAX_X) && (gte y MIN_Y) && (lte y MAX_Y);
 
-/* Cliff check */
-onCliff = {cliff_predicate};
+/* Potential Variable Updates */
+xMoves = {x_moves};
+yMoves = {y_moves};
 
 assume {{
     eq x START_X;

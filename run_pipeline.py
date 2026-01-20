@@ -125,10 +125,10 @@ The pipeline will:
 
     # Calculate overall success rate
     total_passed = sum(cfg.passed for cfg in result.configurations)
-    total_configs = sum(cfg.total for cfg in result.configurations)
+    total_objectives = sum(cfg.total for cfg in result.configurations)
 
-    if total_configs == 0:
-        print("\nNo configurations were run", file=sys.stderr)
+    if total_objectives == 0:
+        print("\nNo objectives were run", file=sys.stderr)
         return 1
 
     # Return 0 if at least one configuration passed
