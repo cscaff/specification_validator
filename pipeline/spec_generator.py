@@ -9,6 +9,11 @@ parameters and produces a complete TSLMT spec.
 from typing import Any
 
 
+def get_default_moves(var_name: str) -> str:
+    """Return the default moves expression for a variable: identity, +1, -1."""
+    return f"[{var_name} <- {var_name}] || [{var_name} <- add {var_name} i1()] || [{var_name} <- sub {var_name} i1()]"
+
+
 def generate_ice_lake_spec(params: dict[str, Any], objective: str) -> str:
     """
     Generate an Ice Lake TSLMT specification.
@@ -38,6 +43,12 @@ def generate_ice_lake_spec(params: dict[str, Any], objective: str) -> str:
         hole_constants.append(f"hole{i}y = i{hole['y']}();")
     hole_constants_str = "\n".join(hole_constants) if hole_constants else "/* No holes */"
 
+    # Get custom variable updates if specified (raw TSL expressions)
+    # If not specified, use default: identity, +1, -1
+    variable_updates = params.get("variable_updates", {})
+    x_moves = variable_updates.get("x", get_default_moves("x"))
+    y_moves = variable_updates.get("y", get_default_moves("y"))
+
     spec = f'''var Int x
 var Int y
 
@@ -60,8 +71,8 @@ BOUND_MAX = i{bound_max}();
 inBounds = (gte x BOUND_MIN) && (lte x BOUND_MAX) && (gte y BOUND_MIN) && (lte y BOUND_MAX);
 
 /* Potential Variable Updates */
-xMoves = [x <- x] || [x <- add x i1()] || [x <- sub x i1()];
-yMoves = [y <- y] || [y <- add y i1()] || [y <- sub y i1()];
+xMoves = {x_moves};
+yMoves = {y_moves};
 
 assume {{
     eq x startx;
@@ -87,8 +98,8 @@ def generate_taxi_spec(params: dict[str, Any], objective: str) -> str:
     Generate a Taxi TSLMT specification.
 
     Args:
-        params: Configuration with grid_size, pickup, dropoff, barriers, start_pos
-        objective: The TSL guarantee objective (e.g., "F delivered")
+        params: Configuration with grid_size, pickup, dropoff, locations, start_pos
+        objective: The TSL guarantee objective
 
     Returns:
         Complete TSLMT specification string
@@ -96,7 +107,7 @@ def generate_taxi_spec(params: dict[str, Any], objective: str) -> str:
     grid_size = params.get("grid_size", 5)
     pickup = params.get("pickup", params.get("PickUp", {"x": 0, "y": 0}))
     dropoff = params.get("dropoff", params.get("Dropoff", {"x": 4, "y": 4}))
-    barriers = params.get("barriers", params.get("Barriers", []))
+    locations = params.get("locations", {})  # Named locations like {b: {x: 1, y: 2}, y: {x: 3, y: 4}}
     start_pos = params.get("start_pos", {"x": 2, "y": 2})
 
     bound_max = grid_size - 1
@@ -107,89 +118,67 @@ def generate_taxi_spec(params: dict[str, Any], objective: str) -> str:
     start_x = start_pos.get("x", 2)
     start_y = start_pos.get("y", 2)
 
-    # Generate barrier constants
-    barrier_constants = []
-    for i, barrier in enumerate(barriers):
-        barrier_constants.append(f"BAR_{i}_X = i{barrier['x']}();")
-        barrier_constants.append(f"BAR_{i}_Y = i{barrier['y']}();")
+    # Generate location constants (e.g., locbx, locby, locyx, locy)
+    location_constants = []
+    for loc_name, loc_pos in locations.items():
+        location_constants.append(f"loc{loc_name}x = i{loc_pos['x']}();")
+        location_constants.append(f"loc{loc_name}y = i{loc_pos['y']}();")
+    location_constants_str = "\n".join(location_constants) if location_constants else "/* No additional locations */"
 
-    barrier_constants_str = "\n".join(barrier_constants) if barrier_constants else "/* No barriers */"
-
-    # Generate atBarrier predicate
-    if len(barriers) == 0:
-        at_barrier = "false"
-    elif len(barriers) == 1:
-        at_barrier = "(eq x BAR_0_X) && (eq y BAR_0_Y)"
-    else:
-        barrier_checks = [f"((eq x BAR_{i}_X) && (eq y BAR_{i}_Y))" for i in range(len(barriers))]
-        at_barrier = " || ".join(barrier_checks)
+    # Get custom variable updates if specified (raw TSL expressions)
+    # If not specified, use default: identity, +1, -1
+    variable_updates = params.get("variable_updates", {})
+    x_moves = variable_updates.get("x", get_default_moves("x"))
+    y_moves = variable_updates.get("y", get_default_moves("y"))
 
     spec = f'''var Int x
 var Int y
-var Bool hasPassenger
-var Bool delivered
+var Bool passengerInTaxi
 
 SPECIFICATION
 
 /* Taxi: Navigate {grid_size}x{grid_size} grid, pickup passenger, deliver to destination */
-/* Pickup: ({pickup_x},{pickup_y}), Dropoff: ({dropoff_x},{dropoff_y}), Start: ({start_x},{start_y}), Barriers: {len(barriers)} */
+/* Pickup: ({pickup_x},{pickup_y}), Dropoff: ({dropoff_x},{dropoff_y}), Start: ({start_x},{start_y}) */
 
 MINB = i0();
 MAXB = i{bound_max}();
 
-START_X = i{start_x}();
-START_Y = i{start_y}();
-PICKUP_X = i{pickup_x}();
-PICKUP_Y = i{pickup_y}();
-DEST_X = i{dropoff_x}();
-DEST_Y = i{dropoff_y}();
+startx = i{start_x}();
+starty = i{start_y}();
+pickupx = i{pickup_x}();
+pickupy = i{pickup_y}();
+destinationx = i{dropoff_x}();
+destinationy = i{dropoff_y}();
 
-/* Barrier positions */
-{barrier_constants_str}
+/* Additional locations */
+{location_constants_str}
 
 /* Position checks */
 inBounds = (gte x MINB) && (lte x MAXB) && (gte y MINB) && (lte y MAXB);
-atBarrier = {at_barrier};
-atPickup = (eq x PICKUP_X) && (eq y PICKUP_Y);
-atDest = (eq x DEST_X) && (eq y DEST_Y);
 
-/* Movement */
-stayX = [x <- x];
-stayY = [y <- y];
-moveRight = [x <- add x i1()] && [y <- y];
-moveLeft = [x <- sub x i1()] && [y <- y];
-moveUp = [y <- add y i1()] && [x <- x];
-moveDown = [y <- sub y i1()] && [x <- x];
+/* Potential Variable Updates */
+xMoves = {x_moves};
+yMoves = {y_moves};
 
 assume {{
-    eq x START_X;
-    eq y START_Y;
+    eq x startx;
+    eq y starty;
+    ! passengerInTaxi;
 }}
 
 guarantee {{
-    /* Initial */
-    stayX && stayY && [hasPassenger <- false] && [delivered <- false];
+    /* Initial state */
+    /* [passengerInTaxi <- false]; */
 
     /* Safety */
     G inBounds;
 
     /* Movement */
-    X G ((stayX && stayY) ||
-         (moveRight && (lt x MAXB)) ||
-         (moveLeft && (gt x MINB)) ||
-         (moveUp && (lt y MAXB)) ||
-         (moveDown && (gt y MINB)));
+    G ((xMoves && [y <- y]) || ([x <- x] && yMoves));
 
-    /* Pickup */
-    X G (!hasPassenger && !delivered && atPickup -> [hasPassenger <- true] && [delivered <- false]);
-    X G (!hasPassenger && !delivered && !atPickup -> [hasPassenger <- false] && [delivered <- false]);
-
-    /* Dropoff */
-    X G (hasPassenger && !delivered && atDest -> [hasPassenger <- false] && [delivered <- true]);
-    X G (hasPassenger && !delivered && !atDest -> [hasPassenger <- true] && [delivered <- false]);
-
-    /* Done */
-    X G (delivered -> [hasPassenger <- false] && [delivered <- true] && stayX && stayY);
+    /* Pickup logic */
+    G (!passengerInTaxi && !((eq x pickupx) && (eq y pickupy)) -> [passengerInTaxi <- false]);
+    G ((passengerInTaxi || ((eq x pickupx) && (eq y pickupy))) -> [passengerInTaxi <- true]);
 
     /* Objective */
     {objective};
@@ -223,14 +212,11 @@ def generate_cliff_walking_spec(params: dict[str, Any], objective: str) -> str:
     start_x = start_pos.get("x", 0)
     start_y = start_pos.get("y", 0)
 
-    # Cliff is typically at y=0, x from cliff_min to cliff_max
-    # If cliff_min == cliff_max == 0, there's no cliff
-    has_cliff = cliff_min < cliff_max
-
-    if has_cliff:
-        cliff_predicate = f"(eq y cliffY) && (gte x cliffminx) && (lte x cliffmaxx)"
-    else:
-        cliff_predicate = "false"
+    # Get custom variable updates if specified (raw TSL expressions)
+    # If not specified, use default: identity, +1, -1
+    variable_updates = params.get("variable_updates", {})
+    x_moves = variable_updates.get("x", get_default_moves("x"))
+    y_moves = variable_updates.get("y", get_default_moves("y"))
 
     spec = f'''var Int x
 var Int y
@@ -247,22 +233,19 @@ MAX_Y = i{max_y}();
 
 START_X = i{start_x}();
 START_Y = i{start_y}();
-goalX = i{goal_x}();
-goalY = i{goal_y}();
+goalx = i{goal_x}();
+goaly = i{goal_y}();
 
-cliffY = i0();
+cliffy = i0();
 cliffXMin = i{cliff_min}();
 cliffXMax = i{cliff_max}();
-
-/* Potential Variable Updates */
-xMoves = [x <- x] || [x <- add x i1()] || [x <- sub x i1()];
-yMoves = [y <- y] || [y <- add y i1()] || [y <- sub y i1()];
 
 /* Position predicates */
 inBounds = (gte x MIN_X) && (lte x MAX_X) && (gte y MIN_Y) && (lte y MAX_Y);
 
-/* Cliff check */
-onCliff = {cliff_predicate};
+/* Potential Variable Updates */
+xMoves = {x_moves};
+yMoves = {y_moves};
 
 assume {{
     eq x START_X;
