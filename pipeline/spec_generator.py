@@ -265,8 +265,8 @@ MAX_Y = i{max_y}();
 
 START_X = i{start_x}();
 START_Y = i{start_y}();
-goalx = i{goal_x}();
-goaly = i{goal_y}();
+goalX = i{goal_x}();
+goalY = i{goal_y}();
 
 cliffy = i0();
 cliffXMin = i{cliff_min}();
