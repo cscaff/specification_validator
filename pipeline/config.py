@@ -135,25 +135,8 @@ def load_config(config_path: str | Path, root_dir: Optional[Path] = None) -> Pip
     configurations = []
     run_config = raw.get("run_configuration", [])
 
-<<<<<<< Updated upstream
     for i, cfg_raw in enumerate(run_config):
         config_name = cfg_raw.get("name", f"config_{i+1}")
-=======
-    # Get top-level variable_updates (applies to all configurations unless overridden)
-    top_level_variable_updates = raw.get("variable_updates", None)
-
-    for obj_raw in run_config:
-        # Parse configurations for this objective
-        configs = []
-        for i, cfg_raw in enumerate(obj_raw.get("configurations", [])):
-            config_name = cfg_raw.get("name", f"config_{i+1}")
-            # Remove 'name' from params, keep everything else
-            params = {k: v for k, v in cfg_raw.items() if k != "name"}
-            # Merge top-level variable_updates if not specified at configuration level
-            if top_level_variable_updates and "variable_updates" not in params:
-                params["variable_updates"] = top_level_variable_updates
-            configs.append(GameConfiguration(name=config_name, params=params))
->>>>>>> Stashed changes
 
         # Parse objectives for this configuration
         objectives = []

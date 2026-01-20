@@ -4,6 +4,13 @@
 
 name: ice_lake
 
+# Variable updates: raw TSL expressions for potential variable updates
+# Paste the expressions directly from updates.tsl (replacing playerX/playerY with x/y)
+# Default if not specified: "[x <- x] || [x <- add x i1()] || [x <- sub x i1()]"
+variable_updates:
+  x: "[x <- x] || [x <- add x i1()] || [x <- sub x i1()]"
+  y: "[y <- y] || [y <- add y i1()] || [y <- sub y i1()]"
+
 synthesis:
   command: issy
   args:
