@@ -157,7 +157,6 @@ def generate_taxi_spec(params: dict[str, Any], objective: str) -> str:
     spec = f'''var Int x
 var Int y
 var Bool passengerInTaxi
-var Bool passengerInTaxi
 
 SPECIFICATION
 
