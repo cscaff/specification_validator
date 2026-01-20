@@ -139,23 +139,51 @@ def generate_taxi_game(params: dict[str, Any]) -> str:
     Generate a Taxi game harness.
 
     Args:
-        params: Configuration with grid_size, pickup, dropoff, barriers, start_pos
+        params: Configuration with grid_size, barriers, start_pos, colored_cells, pickup_color, dropoff_color
 
     Returns:
         Complete C game harness string (controller appended separately)
     """
     grid_size = params.get("grid_size", 5)
-    pickup = params.get("pickup", params.get("PickUp", {"x": 0, "y": 0}))
-    dropoff = params.get("dropoff", params.get("Dropoff", {"x": 4, "y": 4}))
     barriers = params.get("barriers", params.get("Barriers", []))
     start_pos = params.get("start_pos", {"x": 2, "y": 2})
 
-    pickup_x = pickup.get("x", 0)
-    pickup_y = pickup.get("y", 0)
-    dropoff_x = dropoff.get("x", grid_size - 1)
-    dropoff_y = dropoff.get("y", grid_size - 1)
+    # Get colored cell positions (defaults match traditional taxi layout)
+    colored_cells = params.get("colored_cells", {
+        "red": {"x": 0, "y": 0},
+        "green": {"x": 4, "y": 4},
+        "blue": {"x": 4, "y": 0},
+        "yellow": {"x": 0, "y": 4}
+    })
+
+    # Get pickup and dropoff colors
+    pickup_color = params.get("pickup_color", "red")
+    dropoff_color = params.get("dropoff_color", "green")
+
+    bound_max = grid_size - 1
     start_x = start_pos.get("x", 2)
     start_y = start_pos.get("y", 2)
+
+    # Get coordinates from colored cells
+    red_pos = colored_cells.get("red", {"x": 0, "y": 0})
+    green_pos = colored_cells.get("green", {"x": bound_max, "y": bound_max})
+    blue_pos = colored_cells.get("blue", {"x": bound_max, "y": 0})
+    yellow_pos = colored_cells.get("yellow", {"x": 0, "y": bound_max})
+
+    # Derive pickup/dropoff from colors
+    color_positions = {
+        "red": red_pos,
+        "green": green_pos,
+        "blue": blue_pos,
+        "yellow": yellow_pos
+    }
+    pickup_pos = color_positions[pickup_color]
+    dropoff_pos = color_positions[dropoff_color]
+
+    pickup_x = pickup_pos.get("x", 0)
+    pickup_y = pickup_pos.get("y", 0)
+    dropoff_x = dropoff_pos.get("x", bound_max)
+    dropoff_y = dropoff_pos.get("y", bound_max)
 
     # Generate barrier arrays
     barrier_count = len(barriers)
@@ -166,17 +194,43 @@ def generate_taxi_game(params: dict[str, Any]) -> str:
         x_barriers = "{-1};"
         y_barriers = "{-1};"
 
+    # Determine forbidden colors (colors that are neither pickup nor dropoff)
+    all_colors = ["red", "green", "blue", "yellow"]
+    forbidden_colors = [c for c in all_colors if c != pickup_color and c != dropoff_color]
+
+    # Generate forbidden color position defines
+    forbidden_defines = ""
+    forbidden_checks = []
+    for i, color in enumerate(forbidden_colors):
+        pos = color_positions[color]
+        forbidden_defines += f"#define FORBIDDEN_{i}_X {pos['x']}\n"
+        forbidden_defines += f"#define FORBIDDEN_{i}_Y {pos['y']}\n"
+        forbidden_checks.append(f'(px == FORBIDDEN_{i}_X && py == FORBIDDEN_{i}_Y)')
+
+    num_forbidden = len(forbidden_colors)
+
+    # Build forbidden check function body
+    if forbidden_checks:
+        forbidden_check_expr = " || ".join(forbidden_checks)
+    else:
+        forbidden_check_expr = "false"
+
+    # Generate color names for comments
+    forbidden_names = ", ".join(forbidden_colors) if forbidden_colors else "none"
+
     game = f'''/*
  * Taxi Game - Automated Validation Harness
  * Generated from configuration parameters
  *
- * Grid: {grid_size}x{grid_size}, Pickup: ({pickup_x},{pickup_y}), Dropoff: ({dropoff_x},{dropoff_y}), Start: ({start_x},{start_y}), Barriers: {barrier_count}
+ * Grid: {grid_size}x{grid_size}, Pickup: {pickup_color}({pickup_x},{pickup_y}), Dropoff: {dropoff_color}({dropoff_x},{dropoff_y}), Start: ({start_x},{start_y}), Barriers: {barrier_count}
+ * Forbidden colors: {forbidden_names}
  *
  * Exit codes:
  *   0 = Success (passenger delivered)
  *   1 = Hit barrier
  *   2 = Out of bounds
  *   3 = Step timeout
+ *   4 = Entered forbidden colored cell
  */
 
 #include <stdio.h>
@@ -194,6 +248,19 @@ def generate_taxi_game(params: dict[str, Any]) -> str:
 #define MAX_STEPS 1000
 #define NUM_BARRIERS {barrier_count}
 
+/* Colored cell positions */
+#define RED_X {red_pos['x']}
+#define RED_Y {red_pos['y']}
+#define GREEN_X {green_pos['x']}
+#define GREEN_Y {green_pos['y']}
+#define BLUE_X {blue_pos['x']}
+#define BLUE_Y {blue_pos['y']}
+#define YELLOW_X {yellow_pos['x']}
+#define YELLOW_Y {yellow_pos['y']}
+
+/* Forbidden colored cells (neither pickup nor dropoff) */
+#define NUM_FORBIDDEN {num_forbidden}
+{forbidden_defines}
 static int barrier_x[] = {x_barriers}
 static int barrier_y[] = {y_barriers}
 static int num_barriers = NUM_BARRIERS;
@@ -202,8 +269,7 @@ static int num_barriers = NUM_BARRIERS;
 static int step_count = 0;
 
 /* Forward declarations for controller state variables */
-extern bool hasPassenger;
-extern bool delivered;
+extern bool passengerInTaxi;
 extern int x;
 extern int y;
 
@@ -222,6 +288,16 @@ static bool in_bounds(int px, int py) {{
     return px >= 0 && px < GRID_SIZE && py >= 0 && py < GRID_SIZE;
 }}
 
+/* Check if position is a forbidden colored cell */
+static bool is_forbidden_color(int px, int py) {{
+    return {forbidden_check_expr};
+}}
+
+/* Check if at destination */
+static bool at_destination(int px, int py) {{
+    return px == DEST_X && py == DEST_Y;
+}}
+
 /*
  * read_inputs() - Called by controller at each step
  * Performs validation and handles termination
@@ -230,7 +306,7 @@ void read_inputs(void) {{
     step_count++;
 
     // Print current position for debugging
-    printf("Step %d: Position (%d,%d)\\n", step_count, x, y);
+    printf("Step %d: Position (%d,%d), passengerInTaxi=%d\\n", step_count, x, y, passengerInTaxi);
 
     /* Check for barrier */
     if (is_barrier(x, y)) {{
@@ -244,16 +320,22 @@ void read_inputs(void) {{
         exit(2);
     }}
 
-    /* Check for delivery complete */
-    if (delivered) {{
+    /* Check for forbidden colored cell */
+    if (is_forbidden_color(x, y)) {{
+        printf("FAIL: Entered forbidden colored cell at (%d,%d) after %d steps\\n", x, y, step_count);
+        exit(4);
+    }}
+
+    /* Check for delivery complete (at destination with passenger) */
+    if (at_destination(x, y) && passengerInTaxi) {{
         printf("SUCCESS: Passenger delivered in %d steps\\n", step_count);
         exit(0);
     }}
 
     /* Check step limit */
     if (step_count >= MAX_STEPS) {{
-        printf("FAIL: Step timeout (%d steps) at (%d,%d), hasPassenger=%d\\n",
-               MAX_STEPS, x, y, hasPassenger);
+        printf("FAIL: Step timeout (%d steps) at (%d,%d), passengerInTaxi=%d\\n",
+               MAX_STEPS, x, y, passengerInTaxi);
         exit(3);
     }}
 }}

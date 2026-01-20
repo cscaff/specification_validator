@@ -87,111 +87,118 @@ def generate_taxi_spec(params: dict[str, Any], objective: str) -> str:
     Generate a Taxi TSLMT specification.
 
     Args:
-        params: Configuration with grid_size, pickup, dropoff, barriers, start_pos
-        objective: The TSL guarantee objective (e.g., "F delivered")
+        params: Configuration with grid_size, barriers, start_pos, colored_cells, pickup_color, dropoff_color
+        objective: The TSL guarantee objective (e.g., "F (eq x DEST_X && eq y DEST_Y && passengerInTaxi)")
 
     Returns:
         Complete TSLMT specification string
     """
     grid_size = params.get("grid_size", 5)
-    pickup = params.get("pickup", params.get("PickUp", {"x": 0, "y": 0}))
-    dropoff = params.get("dropoff", params.get("Dropoff", {"x": 4, "y": 4}))
     barriers = params.get("barriers", params.get("Barriers", []))
     start_pos = params.get("start_pos", {"x": 2, "y": 2})
 
+    # Get colored cell positions (defaults match traditional taxi layout)
+    colored_cells = params.get("colored_cells", {
+        "red": {"x": 0, "y": 0},
+        "green": {"x": 4, "y": 4},
+        "blue": {"x": 4, "y": 0},
+        "yellow": {"x": 0, "y": 4}
+    })
+
+    # Get pickup and dropoff colors
+    pickup_color = params.get("pickup_color", "red")
+    dropoff_color = params.get("dropoff_color", "green")
+
     bound_max = grid_size - 1
-    pickup_x = pickup.get("x", 0)
-    pickup_y = pickup.get("y", 0)
-    dropoff_x = dropoff.get("x", bound_max)
-    dropoff_y = dropoff.get("y", bound_max)
     start_x = start_pos.get("x", 2)
     start_y = start_pos.get("y", 2)
 
-    # Generate barrier constants
-    barrier_constants = []
-    for i, barrier in enumerate(barriers):
-        barrier_constants.append(f"BAR_{i}_X = i{barrier['x']}();")
-        barrier_constants.append(f"BAR_{i}_Y = i{barrier['y']}();")
+    # Get coordinates from colored cells
+    red_pos = colored_cells.get("red", {"x": 0, "y": 0})
+    green_pos = colored_cells.get("green", {"x": bound_max, "y": bound_max})
+    blue_pos = colored_cells.get("blue", {"x": bound_max, "y": 0})
+    yellow_pos = colored_cells.get("yellow", {"x": 0, "y": bound_max})
 
-    barrier_constants_str = "\n".join(barrier_constants) if barrier_constants else "/* No barriers */"
+    # Derive pickup/dropoff from colors
+    color_positions = {
+        "red": red_pos,
+        "green": green_pos,
+        "blue": blue_pos,
+        "yellow": yellow_pos
+    }
+    pickup_pos = color_positions[pickup_color]
+    dropoff_pos = color_positions[dropoff_color]
 
-    # Generate atBarrier predicate
+    pickup_x = pickup_pos.get("x", 0)
+    pickup_y = pickup_pos.get("y", 0)
+    dropoff_x = dropoff_pos.get("x", bound_max)
+    dropoff_y = dropoff_pos.get("y", bound_max)
+
+    # Generate barrier predicates
     if len(barriers) == 0:
-        at_barrier = "false"
-    elif len(barriers) == 1:
-        at_barrier = "(eq x BAR_0_X) && (eq y BAR_0_Y)"
+        barriers_predicate = "false"
     else:
-        barrier_checks = [f"((eq x BAR_{i}_X) && (eq y BAR_{i}_Y))" for i in range(len(barriers))]
-        at_barrier = " || ".join(barrier_checks)
+        barrier_checks = [f"(eq x i{b['x']}() && eq y i{b['y']}())" for b in barriers]
+        barriers_predicate = " ||\n           ".join(barrier_checks)
 
     spec = f'''var Int x
 var Int y
-var Bool hasPassenger
-var Bool delivered
+var Bool passengerInTaxi
 
 SPECIFICATION
 
 /* Taxi: Navigate {grid_size}x{grid_size} grid, pickup passenger, deliver to destination */
-/* Pickup: ({pickup_x},{pickup_y}), Dropoff: ({dropoff_x},{dropoff_y}), Start: ({start_x},{start_y}), Barriers: {len(barriers)} */
+/* Pickup: {pickup_color}({pickup_x},{pickup_y}), Dropoff: {dropoff_color}({dropoff_x},{dropoff_y}), Start: ({start_x},{start_y}), Barriers: {len(barriers)} */
 
-MINB = i0();
-MAXB = i{bound_max}();
-
-START_X = i{start_x}();
-START_Y = i{start_y}();
-PICKUP_X = i{pickup_x}();
-PICKUP_Y = i{pickup_y}();
 DEST_X = i{dropoff_x}();
 DEST_Y = i{dropoff_y}();
 
-/* Barrier positions */
-{barrier_constants_str}
+START_X = i{start_x}();
+START_Y = i{start_y}();
 
-/* Position checks */
-inBounds = (gte x MINB) && (lte x MAXB) && (gte y MINB) && (lte y MAXB);
-atBarrier = {at_barrier};
-atPickup = (eq x PICKUP_X) && (eq y PICKUP_Y);
-atDest = (eq x DEST_X) && (eq y DEST_Y);
+PASSENGER_X = i{pickup_x}();
+PASSENGER_Y = i{pickup_y}();
 
-/* Movement */
-stayX = [x <- x];
-stayY = [y <- y];
-moveRight = [x <- add x i1()] && [y <- y];
-moveLeft = [x <- sub x i1()] && [y <- y];
-moveUp = [y <- add y i1()] && [x <- x];
-moveDown = [y <- sub y i1()] && [x <- x];
+BOUND_MIN = i0();
+BOUND_MAX = i{bound_max}();
+
+/* Possible Pick Up Areas/Destinations */
+red = (eq x i{red_pos['x']}() && eq y i{red_pos['y']}());
+green = (eq x i{green_pos['x']}() && eq y i{green_pos['y']}());
+blue = (eq x i{blue_pos['x']}() && eq y i{blue_pos['y']}());
+yellow = (eq x i{yellow_pos['x']}() && eq y i{yellow_pos['y']}());
+
+/* Barriers */
+barriers = {barriers_predicate};
+
+/* Position predicates */
+inBounds = (gte x BOUND_MIN) && (lte x BOUND_MAX) && (gte y BOUND_MIN) && (lte y BOUND_MAX) && !barriers;
+
+/* Potential Variable Updates */
+xMoves = [x <- x] || [x <- add x i1()] || [x <- sub x i1()];
+yMoves = [y <- y] || [y <- add y i1()] || [y <- sub y i1()];
+
 
 assume {{
+    /* Taxi Start Position */
     eq x START_X;
     eq y START_Y;
+
+    ! passengerInTaxi;
 }}
 
 guarantee {{
-    /* Initial */
-    stayX && stayY && [hasPassenger <- false] && [delivered <- false];
-
-    /* Safety */
+    /* Stay in bounds */
     G inBounds;
 
-    /* Movement */
-    X G ((stayX && stayY) ||
-         (moveRight && (lt x MAXB)) ||
-         (moveLeft && (gt x MINB)) ||
-         (moveUp && (lt y MAXB)) ||
-         (moveDown && (gt y MINB)));
+    /* Movement - only one direction at a time */
+    G ((xMoves && [y <- y]) || ([x <- x] && yMoves));
 
-    /* Pickup */
-    X G (!hasPassenger && !delivered && atPickup -> [hasPassenger <- true] && [delivered <- false]);
-    X G (!hasPassenger && !delivered && !atPickup -> [hasPassenger <- false] && [delivered <- false]);
+    /* Passenger pickup: pick up when at location, keep once picked up */
+    G (([passengerInTaxi <- true] && ((eq x PASSENGER_X && eq y PASSENGER_Y) || passengerInTaxi)) ||
+         ([passengerInTaxi <- false] && !(eq x PASSENGER_X && eq y PASSENGER_Y) && !passengerInTaxi));
 
-    /* Dropoff */
-    X G (hasPassenger && !delivered && atDest -> [hasPassenger <- false] && [delivered <- true]);
-    X G (hasPassenger && !delivered && !atDest -> [hasPassenger <- true] && [delivered <- false]);
-
-    /* Done */
-    X G (delivered -> [hasPassenger <- false] && [delivered <- true] && stayX && stayY);
-
-    /* Objective */
+    /* Objective: deliver passenger to destination, avoid invalid destinations */
     {objective};
 }}
 '''
