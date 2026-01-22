@@ -233,6 +233,7 @@ def generate_cliff_walking_spec(params: dict[str, Any], objective: str) -> str:
     grid_rows = params.get("grid_rows", 4)
     cliff_min = params.get("cliff_min", 1)
     cliff_max = params.get("cliff_max", 10)
+    cliffHeight = params.get("cliff_height", 1)
     start_pos = params.get("start_pos", {"x": 0, "y": 0})
     goal_pos = params.get("goal_pos", {"x": 11, "y": 0})
 
@@ -255,7 +256,7 @@ var Int y
 SPECIFICATION
 
 /* Cliff Walking: Robot navigates {grid_cols}x{grid_rows} grid avoiding cliff to reach goal */
-/* Goal: ({goal_x},{goal_y}), Start: ({start_x},{start_y}), Cliff: y=0, x=[{cliff_min},{cliff_max}] */
+/* Goal: ({goal_x},{goal_y}), Start: ({start_x},{start_y}), Cliff: y<{cliffHeight}, x=[{cliff_min},{cliff_max}] */
 
 MIN_X = i0();
 MAX_X = i{max_x}();
@@ -264,10 +265,10 @@ MAX_Y = i{max_y}();
 
 START_X = i{start_x}();
 START_Y = i{start_y}();
-goalX = i{goal_x}();
-goalY = i{goal_y}();
+goalx = i{goal_x}();
+goaly = i{goal_y}();
 
-cliffy = i0();
+cliffHeight = i{cliffHeight}();
 cliffXMin = i{cliff_min}();
 cliffXMax = i{cliff_max}();
 

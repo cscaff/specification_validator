@@ -10,24 +10,25 @@ synthesis:
   args:
     - "--tslmt"
     - "--synt"
-    # - "--pruning"
-    # - "1"
-
-  timeout_minutes: 10  # Skip configuration if synthesis takes longer than 5 minutes
+    - "--pruning"
+    - "1"
+    - "--accel"
+    - "no"
+  timeout_minutes: 30  # Skip configuration if synthesis takes longer than 10 minutes
 
 debug: true
 
 run_configuration:
-  - name: "Standard 12x4 cliff"
+  - name: "12x4 cliff"
     grid_size: 12
     grid_rows: 4
     cliff_min: 1
     cliff_max: 10
+    cliff_height: 2
     start_pos: {x: 0, y: 0}
     goal_pos: {x: 11, y: 0}
     objectives:
-      # Objective: Reach goal while avoiding cliff
-      - objective: "F (eq x goalX && eq y goalY) && (G (X (eq y goalY -> eq x goalX)))"
+      - objective: "(F (eq x goalx && eq y goaly)) && (G ((eq x goalx) || ((lt y cliffHeight) -> (eq x goaly))))"
         timeout: 1000
 
   #     # Objective: Just reach goal (relaxed)

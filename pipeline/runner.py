@@ -70,9 +70,9 @@ def build_game(tmp_dir: Path, debug: bool = False) -> bool:
     process.stdout.close()
     process.wait()
 
-    if process.returncode != 0 and debug:
+    if process.returncode != 0:
         print(f"    Build failed with code {process.returncode}")
-        print("    Output:", "".join(output_lines))
+        print("    Output:", "".join(output_lines[-20:]))  # Last 20 lines
 
     return process.returncode == 0
 

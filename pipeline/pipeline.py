@@ -37,6 +37,7 @@ class ObjectiveRunResult:
     steps: Optional[int] = None
     error_message: Optional[str] = None
     synthesis_time: Optional[float] = None
+    game_output: Optional[str] = None  # Full game output including trajectory
 
 
 @dataclass
@@ -250,7 +251,9 @@ class Pipeline:
                 # Save a debug copy to games folder
                 debug_name = config.name.replace(" ", "_").replace("/", "_")
                 obj_suffix = f"_obj{obj_num}"
-                debug_file = self.config.root_dir / "games" / f"{self.config.name}_{debug_name}{obj_suffix}_debug.c"
+                games_dir = self.config.root_dir / "games"
+                games_dir.mkdir(exist_ok=True)
+                debug_file = games_dir / f"{self.config.name}_{debug_name}{obj_suffix}_debug.c"
                 shutil.copy(game_file, debug_file)
                 print(f"  Debug copy saved to: {debug_file}")
 
@@ -286,6 +289,7 @@ class Pipeline:
                     steps=run_result.steps,
                     error_message=run_result.error_message if not run_result.success else None,
                     synthesis_time=synthesis_result.duration,
+                    game_output=run_result.output,  # Full trajectory log
                 )
 
         except Exception as e:

@@ -112,12 +112,18 @@ def synthesize(
             )
 
         if process.returncode != 0:
+            # Include last 10 lines of output in error message
+            error_lines = output.strip().split('\n')[-10:]
+            error_detail = '\n'.join(error_lines) if error_lines else "(no output)"
+            # Print the full output to logs for debugging
+            print(f"Synthesis FAILED (code {process.returncode}). Output:")
+            print(output if output else "(no output)")
             return SynthesisResult(
                 success=False,
                 controller_code="",
                 output=output,
                 duration=duration,
-                error_message=f"Synthesis failed with return code {process.returncode}",
+                error_message=f"Synthesis failed with return code {process.returncode}:\n{error_detail}",
             )
 
         return SynthesisResult(
