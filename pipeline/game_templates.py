@@ -461,124 +461,199 @@ def generate_blackjack_game(params: dict[str, Any]) -> str:
     Generate a Blackjack game harness.
 
     Args:
-        params: Configuration (minimal for blackjack)
+        params: Configuration with num_games
 
     Returns:
         Complete C game harness string (controller appended separately)
     """
-    game = '''/*
- * Blackjack Game - Automated Validation Harness
- * Generated from configuration parameters
+    num_games = params.get("num_games", 100)
+
+    game = f'''/*
+ * Blackjack Game - Full Simulation Harness
  *
- * Tests various hand/dealer combinations to verify basic strategy.
+ * Plays {num_games} games of blackjack.
+ * Controller manages: count (player hand total), stood (stand decision)
+ * Harness provides: card (next card), dealer (dealer's visible card)
  *
  * Exit codes:
- *   0 = Success (all decisions correct)
- *   1 = Incorrect decision made
+ *   0 = All games completed
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <time.h>
 
-/* Forward declarations for controller variables */
-extern int handValue;
-extern int dealerCard;
-extern bool isSoft;
-extern bool shouldHit;
+/* Configuration */
+#define NUM_GAMES {num_games}
+#define DEALER_STAND 17
+#define BUST_THRESHOLD 21
 
-/* Test case structure */
-typedef struct {
-    int hand;
-    int dealer;
-    bool soft;
-    bool should_hit;
-    const char* description;
-} TestCase;
+/* Controller variables */
+extern bool stood;
+extern int count;
 
-/* Basic strategy test cases */
-static TestCase test_cases[] = {
-    /* Hard hands - always hit 11 or less */
-    {8, 5, false, true, "Hard 8 vs 5 -> Hit"},
-    {10, 9, false, true, "Hard 10 vs 9 -> Hit"},
-    {11, 6, false, true, "Hard 11 vs 6 -> Hit"},
+/* Input variables (defined by controller, set by harness) */
+extern int dealer;
+extern int card;
 
-    /* Hard 12 - hit vs 2-3, 7-A; stand vs 4-6 */
-    {12, 2, false, true, "Hard 12 vs 2 -> Hit"},
-    {12, 4, false, false, "Hard 12 vs 4 -> Stand"},
-    {12, 6, false, false, "Hard 12 vs 6 -> Stand"},
-    {12, 7, false, true, "Hard 12 vs 7 -> Hit"},
+/* Game state */
+static int current_game = 0;
+static int total_steps = 0;
+static bool game_in_progress = false;
+static bool first_call = true;
 
-    /* Hard 13-16 - stand vs 2-6, hit vs 7-A */
-    {13, 3, false, false, "Hard 13 vs 3 -> Stand"},
-    {14, 6, false, false, "Hard 14 vs 6 -> Stand"},
-    {15, 7, false, true, "Hard 15 vs 7 -> Hit"},
-    {16, 10, false, true, "Hard 16 vs 10 -> Hit"},
+/* Game outcome tracking */
+static int player_wins = 0;
+static int dealer_wins = 0;
+static int pushes = 0;
+static int player_busts = 0;
+static int dealer_busts = 0;
+static int player_blackjacks = 0;
+static int dealer_blackjacks = 0;
 
-    /* Hard 17+ - always stand */
-    {17, 10, false, false, "Hard 17 vs 10 -> Stand"},
-    {19, 11, false, false, "Hard 19 vs A -> Stand"},
-    {20, 5, false, false, "Hard 20 vs 5 -> Stand"},
+/* Dealer state for current game */
+static int dealer_total = 0;
+static int dealer_hole_card = 0;
 
-    /* Soft hands - hit soft 17 or less */
-    {13, 5, true, true, "Soft 13 vs 5 -> Hit"},
-    {15, 8, true, true, "Soft 15 vs 8 -> Hit"},
-    {17, 3, true, true, "Soft 17 vs 3 -> Hit"},
+/* Generate random card value (2-11) */
+static int random_card(void) {{
+    int val = (rand() % 13) + 1;
+    if (val > 10) val = 10;      /* Face cards = 10 */
+    if (val == 1) val = 11;      /* Ace = 11 (simplified) */
+    return val;
+}}
 
-    /* Soft 18 - stand vs 2-8, hit vs 9-A */
-    {18, 6, true, false, "Soft 18 vs 6 -> Stand"},
-    {18, 9, true, true, "Soft 18 vs 9 -> Hit"},
-    {18, 11, true, true, "Soft 18 vs A -> Hit"},
+/* Play out dealer's hand (draws to 17) */
+static void play_dealer_hand(void) {{
+    printf("  Dealer hole card: %d, total: %d\\n", dealer_hole_card, dealer_total);
+    while (dealer_total < DEALER_STAND) {{
+        int c = random_card();
+        dealer_total += c;
+        printf("  Dealer draws %d, total: %d\\n", c, dealer_total);
+    }}
+    if (dealer_total > BUST_THRESHOLD) {{
+        printf("  Dealer BUSTS with %d\\n", dealer_total);
+    }} else {{
+        printf("  Dealer stands with %d\\n", dealer_total);
+    }}
+}}
 
-    /* Soft 19+ - always stand */
-    {19, 9, true, false, "Soft 19 vs 9 -> Stand"},
-    {20, 10, true, false, "Soft 20 vs 10 -> Stand"},
-};
+/* Determine winner (called only when player stands without busting) */
+static void determine_winner(void) {{
+    printf("  Final: Player %d vs Dealer %d - ", count, dealer_total);
+    if (dealer_total > BUST_THRESHOLD) {{
+        dealer_busts++;
+        player_wins++;
+        printf("PLAYER WINS (dealer bust)\\n");
+    }} else if (count > dealer_total) {{
+        player_wins++;
+        printf("PLAYER WINS\\n");
+    }} else if (dealer_total > count) {{
+        dealer_wins++;
+        printf("DEALER WINS\\n");
+    }} else {{
+        pushes++;
+        printf("PUSH\\n");
+    }}
+}}
 
-static int num_tests = sizeof(test_cases) / sizeof(test_cases[0]);
-static int current_test = 0;
-static int passed = 0;
-static int failed = 0;
+void read_inputs(void) {{
+    total_steps++;
 
-/*
- * read_inputs() - Called by controller at each step
- * Sets up next test case and validates previous decision
- */
-void read_inputs(void) {
-    /* Check previous decision (except first call) */
-    if (current_test > 0) {
-        TestCase* tc = &test_cases[current_test - 1];
-        bool correct = (shouldHit == tc->should_hit);
+    /* Initialize on first call */
+    if (first_call) {{
+        srand((unsigned int)time(NULL));
+        first_call = false;
+        game_in_progress = false;
+    }}
 
-        if (correct) {
-            passed++;
-        } else {
-            failed++;
-            printf("WRONG: %s, got %s\\n",
-                   tc->description,
-                   shouldHit ? "Hit" : "Stand");
-        }
-    }
+    /* Process previous decision if game in progress */
+    if (game_in_progress) {{
+        /* First check if player busted (from a hit) */
+        if (count > BUST_THRESHOLD) {{
+            printf("  Player BUSTS with %d! Dealer wins.\\n", count);
+            player_busts++;
+            dealer_wins++;
+            game_in_progress = false;
+        }} else if (stood) {{
+            /* Player stands - dealer plays */
+            printf("  Player STANDS with %d\\n", count);
+            play_dealer_hand();
+            determine_winner();
+            game_in_progress = false;
+        }} else {{
+            /* Player hits - show updated count */
+            printf("  Player HITS, now has: %d\\n", count);
+        }}
+    }}
 
-    /* Check if all tests done */
-    if (current_test >= num_tests) {
-        printf("\\nResults: %d/%d correct\\n", passed, num_tests);
-        if (failed == 0) {
-            printf("SUCCESS: All decisions correct in %d steps\\n", num_tests);
+    /* Start new game if needed */
+    if (!game_in_progress) {{
+        current_game++;
+
+        /* Check if all games done */
+        if (current_game > NUM_GAMES) {{
+            printf("\\n============ FINAL RESULTS ============\\n");
+            printf("Games played:      %d\\n", NUM_GAMES);
+            printf("\\n--- Outcomes ---\\n");
+            printf("Player wins:       %d (%.1f%%)\\n", player_wins, 100.0 * player_wins / NUM_GAMES);
+            printf("Dealer wins:       %d (%.1f%%)\\n", dealer_wins, 100.0 * dealer_wins / NUM_GAMES);
+            printf("Pushes:            %d (%.1f%%)\\n", pushes, 100.0 * pushes / NUM_GAMES);
+            printf("\\n--- Busts ---\\n");
+            printf("Player busts:      %d\\n", player_busts);
+            printf("Dealer busts:      %d\\n", dealer_busts);
+            printf("\\n--- Blackjacks ---\\n");
+            printf("Player blackjacks: %d\\n", player_blackjacks);
+            printf("Dealer blackjacks: %d\\n", dealer_blackjacks);
+            printf("Total steps:       %d\\n", total_steps);
+            printf("\\nSUCCESS: All games completed\\n");
             exit(0);
-        } else {
-            printf("FAIL: %d incorrect decisions\\n", failed);
-            exit(1);
-        }
-    }
+        }}
 
-    /* Set up next test case */
-    TestCase* tc = &test_cases[current_test];
-    handValue = tc->hand;
-    dealerCard = tc->dealer;
-    isSoft = tc->soft;
-    current_test++;
-}
+        /* Deal new game */
+        printf("\\n====== Game %d ======\\n", current_game);
+
+        /* Deal dealer's cards */
+        dealer = random_card();
+        dealer_hole_card = random_card();
+        dealer_total = dealer + dealer_hole_card;
+
+        /* Deal player's initial 2 cards - controller will set count */
+        int card1 = random_card();
+        int card2 = random_card();
+        count = card1 + card2;
+
+        printf("  Player: %d + %d = %d\\n", card1, card2, count);
+        printf("  Dealer shows: %d\\n", dealer);
+
+        /* Check for blackjacks */
+        if (count == 21 && dealer_total == 21) {{
+            printf("  Both BLACKJACK - Loss.\\n");
+            player_blackjacks++;
+            dealer_blackjacks++;
+            dealer_wins++;
+            game_in_progress = false;
+        }} else if (count == 21) {{
+            printf("  Player BLACKJACK!\\n");
+            player_blackjacks++;
+            player_wins++;
+            game_in_progress = false;
+        }} else if (dealer_total == 21) {{
+            printf("  Dealer BLACKJACK! (hole: %d)\\n", dealer_hole_card);
+            dealer_blackjacks++;
+            dealer_wins++;
+            game_in_progress = false;
+        }} else {{
+            game_in_progress = true;
+            /* First step - spec uses X G so this card value is ignored */
+            card = random_card();
+        }}
+    }} else {{
+        /* Continue game - provide next card for the hit */
+        card = random_card();
+    }}
+}}
 
 '''
     return game

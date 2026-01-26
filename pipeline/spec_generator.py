@@ -309,69 +309,29 @@ def generate_blackjack_spec(params: dict[str, Any], objective: str) -> str:
     Returns:
         Complete TSLMT specification string
     """
-    spec = f'''inp Int handValue
-inp Int dealerCard
-inp Bool isSoft
-var Bool shouldHit
+    spec = f'''var Bool stood
+var Int count
+
+inp Int dealer
+inp Int card
 
 SPECIFICATION
 
-/* Blackjack Basic Strategy Controller */
-
-/* Constants for card values */
-DEALER_TWO = i2();
-DEALER_FOUR = i4();
-DEALER_SIX = i6();
-DEALER_NINE = i9();
-DEALER_ACE = i11();
-
-/* Hand value thresholds */
-ELEVEN = i11();
-TWELVE = i12();
-THIRTEEN = i13();
-SIXTEEN = i16();
-SEVENTEEN = i17();
-EIGHTEEN = i18();
-
-/* Valid input ranges */
-MIN_HAND = i4();
-MAX_HAND = i21();
-MIN_DEALER = i2();
-MAX_DEALER = i11();
-
-/* Decision outputs */
-hit = [shouldHit <- true];
-stand = [shouldHit <- false];
-
-/* Dealer card categories */
-dealerWeak = (gte dealerCard DEALER_TWO) && (lte dealerCard DEALER_SIX);
-dealerStrong = (gte dealerCard DEALER_NINE) && (lte dealerCard DEALER_ACE);
-dealerVeryWeak = (gte dealerCard DEALER_FOUR) && (lte dealerCard DEALER_SIX);
-
-/* Hard hand hit conditions */
-hardHitAlways = !isSoft && (lte handValue ELEVEN);
-hardHitTwelve = !isSoft && (eq handValue TWELVE) && !dealerVeryWeak;
-hardHitThirteenToSixteen = !isSoft && (gte handValue THIRTEEN) && (lte handValue SIXTEEN) && !dealerWeak;
-
-/* Soft hand hit conditions */
-softHitSeventeenOrLess = isSoft && (lte handValue SEVENTEEN);
-softHitEighteen = isSoft && (eq handValue EIGHTEEN) && dealerStrong;
-
-/* Combined hit condition */
-shouldHitCondition = hardHitAlways || hardHitTwelve || hardHitThirteenToSixteen || softHitSeventeenOrLess || softHitEighteen;
-
-assume {{
-    (gte handValue MIN_HAND) && (lte handValue MAX_HAND);
-    (gte dealerCard MIN_DEALER) && (lte dealerCard MAX_DEALER);
-}}
+dealerStand = i17();
 
 always assume {{
-    (gte handValue MIN_HAND) && (lte handValue MAX_HAND);
-    (gte dealerCard MIN_DEALER) && (lte dealerCard MAX_DEALER);
+    gte card i1();
+    lte card i11();
 }}
 
+/* All logic starts from second step (X G) to skip initialization */
 guarantee {{
-    /* Objective */
+    G ([stood <- true] || [stood <- false]);
+    G ([count <- count] || [count <- add count card]);
+
+    X G ((!stood) -> [count <- add count card]);
+    X G ((stood) -> [count <- count]);
+
     {objective};
 }}
 '''

@@ -1,10 +1,10 @@
 # Blackjack Pipeline Configuration
 #
-# Blackjack basic strategy controller.
-# The controller implements optimal hit/stand decisions based on:
-# - Player's hand value (4-21)
-# - Dealer's visible card (2-11, where 11=Ace)
-# - Whether the hand is soft (contains usable Ace)
+# Blackjack stand-at-17 strategy controller.
+# The controller implements simple hit/stand decisions:
+# - Stand when count >= 17
+# - Hit when count < 17
+# - When hitting, count accumulates the card value
 
 name: blackjack
 
@@ -18,9 +18,9 @@ synthesis:
 debug: true
 
 run_configuration:
-  - name: "Basic strategy test"
-    # No additional params needed for blackjack
+  - name: "Stand at 17 strategy test"
+    num_games: 100  # Number of blackjack games to play
     objectives:
-      # Objective: Correct basic strategy decisions
-      - objective: "G (shouldHitCondition -> hit) && G (!shouldHitCondition -> stand)"
+      # Objective: Stand at 17 or above, hit below 17 (X G skips first step)
+      - objective: "X G (! ((lt count dealerStand) <-> (X (stood))))"
         timeout: 100
